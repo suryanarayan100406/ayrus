@@ -1,0 +1,42 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output
+*.out
+
+# Dependency directories
+vendor/
+
+# Environment files
+.env
+serviceAccountKey.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node modules (for web frontend)
+node_modules/
+.next/
+out/
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+*.apk
+*.aab
+local.properties

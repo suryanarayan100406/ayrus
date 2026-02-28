@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+
+    function isArtist() {
+      return isAuthenticated() && (getUserRole() == 'artist' || getUserRole() == 'admin');
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Artists collection
+    match /artists/{artistId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(artistId);
+      allow update: if isOwner(artistId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Songs collection
+    match /songs/{songId} {
+      allow read: if isAuthenticated();
+      allow create: if isArtist();
+      allow update: if isAdmin() ||
+        (isArtist() && resource.data.artistId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // Albums collection
+    match /albums/{albumId} {
+      allow read: if isAuthenticated();
+      allow create: if isArtist();
+      allow update: if isAdmin() ||
+        (isArtist() && resource.data.artistId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // Playlists collection
+    match /playlists/{playlistId} {
+      allow read: if isAuthenticated() &&
+        (resource.data.isPublic == true || resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated();
+      allow update: if resource.data.userId == request.auth.uid || isAdmin();
+      allow delete: if resource.data.userId == request.auth.uid || isAdmin();
+    }
+
+    // Analytics collection
+    match /analytics/{analyticsId} {
+      allow read: if isAdmin() || isArtist();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+  }
+}

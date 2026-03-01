@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Search as SearchIcon, X } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { search as searchAPI } from '@/lib/api';
+import { discoverJamendo } from '@/lib/api';
 import { usePlayerStore, Song } from '@/store/playerStore';
 import SongCard from '@/components/cards/SongCard';
 import { CardGridSkeleton } from '@/components/skeletons/Skeletons';
@@ -24,30 +24,81 @@ const genreColors = [
     'from-cyan-500 to-blue-600',
 ];
 
+interface JamendoTrack {
+    id: string;
+    name: string;
+    duration: number;
+    artist_id: string;
+    artist_name: string;
+    album_name: string;
+    album_image: string;
+    audio: string;
+    image: string;
+}
+
+function mapJamendoToSong(track: JamendoTrack): Song {
+    return {
+        id: `jamendo-${track.id}`,
+        title: track.name,
+        artistId: track.artist_id,
+        artistName: track.artist_name,
+        albumName: track.album_name,
+        coverURL: track.image || track.album_image,
+        audioURL: track.audio,
+        source: 'jamendo',
+        duration: track.duration,
+        playCount: 0,
+        genre: '',
+    };
+}
+
 export default function SearchPage() {
     const [query, setQuery] = useState('');
-    const [results, setResults] = useState<{ songs: Song[]; artists: any[] } | null>(null);
+    const [results, setResults] = useState<Song[]>([]);
     const [loading, setLoading] = useState(false);
+    const [browsing, setBrowsing] = useState(false);
+    const [browseGenre, setBrowseGenre] = useState('');
+    const [browseResults, setBrowseResults] = useState<Song[]>([]);
 
     const handleSearch = useCallback(async (q: string) => {
         if (!q.trim()) {
-            setResults(null);
+            setResults([]);
             return;
         }
         setLoading(true);
         try {
-            const res = await searchAPI(q);
-            setResults(res.data || { songs: [], artists: [] });
+            const res = await discoverJamendo({ q, limit: 30 });
+            if (res.data) {
+                setResults(res.data.map(mapJamendoToSong));
+            } else {
+                setResults([]);
+            }
         } catch {
-            setResults({ songs: [], artists: [] });
+            setResults([]);
         }
         setLoading(false);
     }, []);
 
+    // Debounced search
     useEffect(() => {
         const timer = setTimeout(() => handleSearch(query), 400);
         return () => clearTimeout(timer);
     }, [query, handleSearch]);
+
+    // Browse genre
+    const handleBrowseGenre = async (genre: string) => {
+        setBrowseGenre(genre);
+        setBrowsing(true);
+        try {
+            const res = await discoverJamendo({ genre: genre.toLowerCase(), limit: 20 });
+            if (res.data) {
+                setBrowseResults(res.data.map(mapJamendoToSong));
+            }
+        } catch {
+            setBrowseResults([]);
+        }
+        setBrowsing(false);
+    };
 
     return (
         <div className="p-6 lg:p-8">
@@ -58,7 +109,7 @@ export default function SearchPage() {
                     <input
                         type="text"
                         value={query}
-                        onChange={(e) => setQuery(e.target.value)}
+                        onChange={(e) => { setQuery(e.target.value); setBrowseGenre(''); }}
                         placeholder="What do you want to listen to?"
                         className="w-full bg-dark-600 rounded-full py-3 pl-12 pr-10 text-white placeholder-dark-300
                        focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
@@ -74,7 +125,7 @@ export default function SearchPage() {
                 </div>
             </div>
 
-            {/* Results */}
+            {/* Search Results */}
             {query ? (
                 <div>
                     <h2 className="text-2xl font-bold mb-5">
@@ -83,47 +134,34 @@ export default function SearchPage() {
 
                     {loading ? (
                         <CardGridSkeleton />
-                    ) : results ? (
-                        <>
-                            {/* Songs */}
-                            {results.songs?.length > 0 && (
-                                <section className="mb-8">
-                                    <h3 className="text-lg font-semibold mb-4 text-dark-300">Songs</h3>
-                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-                                        {results.songs.map((song, i) => (
-                                            <SongCard key={song.id || i} song={song} songs={results.songs} index={i} />
-                                        ))}
-                                    </div>
-                                </section>
-                            )}
-
-                            {/* Artists */}
-                            {results.artists?.length > 0 && (
-                                <section className="mb-8">
-                                    <h3 className="text-lg font-semibold mb-4 text-dark-300">Artists</h3>
-                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                                        {results.artists.map((artist: any) => (
-                                            <div key={artist.uid} className="card-spotify text-center">
-                                                <div className="w-32 h-32 mx-auto rounded-full bg-dark-600 overflow-hidden mb-4">
-                                                    {artist.photoURL ? (
-                                                        <img src={artist.photoURL} alt="" className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-3xl">🎤</div>
-                                                    )}
-                                                </div>
-                                                <h4 className="font-bold">{artist.displayName}</h4>
-                                                <p className="text-xs text-dark-300 mt-1">Artist</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </section>
-                            )}
-
-                            {(results.songs?.length === 0 && results.artists?.length === 0) && (
-                                <p className="text-dark-300 text-center py-12">No results found for &ldquo;{query}&rdquo;</p>
-                            )}
-                        </>
-                    ) : null}
+                    ) : results.length > 0 ? (
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+                            {results.map((song, i) => (
+                                <SongCard key={song.id || i} song={song} songs={results} index={i} />
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-dark-300 text-center py-12">No results found for &ldquo;{query}&rdquo;</p>
+                    )}
+                </div>
+            ) : browseGenre ? (
+                /* Genre Results */
+                <div>
+                    <div className="flex items-center gap-3 mb-5">
+                        <button onClick={() => setBrowseGenre('')} className="text-dark-300 hover:text-white">
+                            ← Back
+                        </button>
+                        <h2 className="text-2xl font-bold">{browseGenre}</h2>
+                    </div>
+                    {browsing ? (
+                        <CardGridSkeleton />
+                    ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+                            {browseResults.map((song, i) => (
+                                <SongCard key={song.id || i} song={song} songs={browseResults} index={i} />
+                            ))}
+                        </div>
+                    )}
                 </div>
             ) : (
                 /* Browse Genres */
@@ -136,7 +174,7 @@ export default function SearchPage() {
                                 initial={{ opacity: 0, scale: 0.9 }}
                                 animate={{ opacity: 1, scale: 1 }}
                                 transition={{ delay: i * 0.05 }}
-                                onClick={() => setQuery(genre)}
+                                onClick={() => handleBrowseGenre(genre)}
                                 className={`bg-gradient-to-br ${genreColors[i]} rounded-xl p-6 text-left h-32
                            hover:scale-105 transition-transform duration-300 relative overflow-hidden`}
                             >

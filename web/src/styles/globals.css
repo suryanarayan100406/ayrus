@@ -47,19 +47,15 @@
   }
 
   .card-spotify {
-    @apply bg-dark-700 rounded-lg p-4 transition-all duration-300 hover:bg-dark-500 cursor-pointer group;
+    @apply bg-dark-700 rounded-lg p-4 transition-all duration-300 hover:bg-dark-500 cursor-pointer;
   }
 
   .btn-primary {
-    @apply bg-primary-500 text-black font-bold py-3 px-8 rounded-full
-           hover:bg-primary-400 hover:scale-105 active:scale-95
-           transition-all duration-200 inline-flex items-center gap-2;
+    @apply bg-primary-500 text-black font-bold py-3 px-8 rounded-full hover:bg-primary-400 hover:scale-105 active:scale-95 transition-all duration-200 inline-flex items-center gap-2;
   }
 
   .btn-secondary {
-    @apply bg-white/10 text-white font-semibold py-3 px-8 rounded-full
-           border border-white/20 hover:bg-white/20 hover:border-white/40
-           hover:scale-105 active:scale-95 transition-all duration-200;
+    @apply bg-white/10 text-white font-semibold py-3 px-8 rounded-full border border-white/20 hover:bg-white/20 hover:border-white/40 hover:scale-105 active:scale-95 transition-all duration-200;
   }
 
   .btn-ghost {
@@ -67,14 +63,11 @@
   }
 
   .input-field {
-    @apply w-full bg-dark-600 border border-dark-400 rounded-lg px-4 py-3
-           text-white placeholder-dark-300 focus:outline-none focus:border-primary-500
-           focus:ring-1 focus:ring-primary-500 transition-all duration-200;
+    @apply w-full bg-dark-600 border border-dark-400 rounded-lg px-4 py-3 text-white placeholder-dark-300 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all duration-200;
   }
 
   .nav-link {
-    @apply flex items-center gap-3 px-4 py-2 rounded-lg text-dark-300
-           hover:text-white hover:bg-dark-600 transition-all duration-200 font-medium;
+    @apply flex items-center gap-3 px-4 py-2 rounded-lg text-dark-300 hover:text-white hover:bg-dark-600 transition-all duration-200 font-medium;
   }
 
   .nav-link.active {
@@ -82,8 +75,7 @@
   }
 
   .song-row {
-    @apply flex items-center gap-4 px-4 py-2 rounded-lg hover:bg-dark-600
-           transition-all duration-200 cursor-pointer group;
+    @apply flex items-center gap-4 px-4 py-2 rounded-lg hover:bg-dark-600 transition-all duration-200 cursor-pointer;
   }
 
   .skeleton {
@@ -95,8 +87,7 @@
   }
 
   .play-button-overlay {
-    @apply absolute inset-0 flex items-center justify-center opacity-0
-           group-hover:opacity-100 transition-opacity duration-300;
+    @apply absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300;
   }
 }
 
@@ -132,8 +123,13 @@ input[type='range']:hover {
 
 /* Vinyl spin animation */
 @keyframes vinyl-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .vinyl-spin {
@@ -146,8 +142,15 @@ input[type='range']:hover {
 
 /* Equalizer bars animation */
 @keyframes eq-bar {
-  0%, 100% { height: 4px; }
-  50% { height: 16px; }
+
+  0%,
+  100% {
+    height: 4px;
+  }
+
+  50% {
+    height: 16px;
+  }
 }
 
 .eq-bar {

@@ -2,39 +2,92 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Clock, TrendingUp } from 'lucide-react';
+import { Play, Clock, TrendingUp, Headphones, Music2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { usePlayerStore, Song } from '@/store/playerStore';
-import { getSongs, getRecommendations, getRecentlyPlayed } from '@/lib/api';
+import { discoverJamendo } from '@/lib/api';
 import { getGreeting } from '@/lib/utils';
 import SongCard from '@/components/cards/SongCard';
 import { CardGridSkeleton } from '@/components/skeletons/Skeletons';
+
+// Map Jamendo track format to our Song format
+interface JamendoTrack {
+    id: string;
+    name: string;
+    duration: number;
+    artist_id: string;
+    artist_name: string;
+    album_name: string;
+    album_image: string;
+    audio: string;
+    audiodownload: string;
+    image: string;
+    shareurl: string;
+}
+
+function mapJamendoToSong(track: JamendoTrack): Song {
+    return {
+        id: `jamendo-${track.id}`,
+        title: track.name,
+        artistId: track.artist_id,
+        artistName: track.artist_name,
+        albumName: track.album_name,
+        coverURL: track.image || track.album_image,
+        audioURL: track.audio,
+        source: 'jamendo',
+        duration: track.duration,
+        playCount: 0,
+        genre: '',
+    };
+}
+
+const GENRES = ['pop', 'rock', 'electronic', 'hiphop', 'jazz', 'classical', 'ambient', 'metal'];
 
 export default function HomePage() {
     const { userProfile } = useAuthStore();
     const { playQueue } = usePlayerStore();
     const [trending, setTrending] = useState<Song[]>([]);
-    const [recommended, setRecommended] = useState<Song[]>([]);
-    const [recent, setRecent] = useState<Song[]>([]);
+    const [genreTracks, setGenreTracks] = useState<Song[]>([]);
+    const [chillTracks, setChillTracks] = useState<Song[]>([]);
+    const [selectedGenre, setSelectedGenre] = useState('pop');
     const [loading, setLoading] = useState(true);
+    const [genreLoading, setGenreLoading] = useState(false);
 
+    // Fetch trending songs on mount
     useEffect(() => {
         async function fetchData() {
             try {
-                const [trendingRes, recommendedRes, recentRes] = await Promise.allSettled([
-                    getSongs({ limit: 12 }),
-                    getRecommendations(12),
-                    getRecentlyPlayed(),
+                const [trendingRes, chillRes] = await Promise.allSettled([
+                    discoverJamendo({ limit: 20 }),
+                    discoverJamendo({ genre: 'ambient', limit: 10 }),
                 ]);
 
-                if (trendingRes.status === 'fulfilled') setTrending(trendingRes.value.data || []);
-                if (recommendedRes.status === 'fulfilled') setRecommended(recommendedRes.value.data || []);
-                if (recentRes.status === 'fulfilled') setRecent(recentRes.value.data || []);
+                if (trendingRes.status === 'fulfilled' && trendingRes.value.data) {
+                    setTrending(trendingRes.value.data.map(mapJamendoToSong));
+                }
+                if (chillRes.status === 'fulfilled' && chillRes.value.data) {
+                    setChillTracks(chillRes.value.data.map(mapJamendoToSong));
+                }
             } catch { }
             setLoading(false);
         }
         fetchData();
     }, []);
+
+    // Fetch genre tracks
+    useEffect(() => {
+        async function fetchGenre() {
+            setGenreLoading(true);
+            try {
+                const res = await discoverJamendo({ genre: selectedGenre, limit: 12 });
+                if (res.data) {
+                    setGenreTracks(res.data.map(mapJamendoToSong));
+                }
+            } catch { }
+            setGenreLoading(false);
+        }
+        fetchGenre();
+    }, [selectedGenre]);
 
     const greeting = getGreeting();
 
@@ -52,8 +105,8 @@ export default function HomePage() {
                 <p className="text-dark-300 text-lg">What do you want to listen to today?</p>
             </motion.div>
 
-            {/* Quick Play Cards */}
-            {recent.length > 0 && (
+            {/* Quick Play - Top 6 trending */}
+            {trending.length > 0 && (
                 <motion.section
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -61,10 +114,10 @@ export default function HomePage() {
                     className="mb-10"
                 >
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {recent.slice(0, 6).map((song, i) => (
+                        {trending.slice(0, 6).map((song, i) => (
                             <button
                                 key={song.id || i}
-                                onClick={() => playQueue(recent, i)}
+                                onClick={() => playQueue(trending, i)}
                                 className="flex items-center gap-4 bg-dark-600/50 hover:bg-dark-500/50 rounded-lg overflow-hidden
                            transition-all duration-300 group"
                             >
@@ -102,34 +155,52 @@ export default function HomePage() {
                     <CardGridSkeleton />
                 ) : (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-                        {trending.map((song, i) => (
+                        {trending.slice(0, 12).map((song, i) => (
                             <SongCard key={song.id || i} song={song} songs={trending} index={i} />
                         ))}
                     </div>
                 )}
             </motion.section>
 
-            {/* Recommended */}
-            {recommended.length > 0 && (
-                <motion.section
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="mb-10"
-                >
-                    <div className="flex items-center gap-2 mb-5">
-                        <h2 className="text-2xl font-bold">Made For You</h2>
-                    </div>
+            {/* Browse by Genre */}
+            <motion.section
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="mb-10"
+            >
+                <div className="flex items-center gap-2 mb-5">
+                    <Music2 className="w-5 h-5 text-purple-400" />
+                    <h2 className="text-2xl font-bold">Browse by Genre</h2>
+                </div>
+                <div className="flex gap-2 mb-5 overflow-x-auto pb-2">
+                    {GENRES.map((genre) => (
+                        <button
+                            key={genre}
+                            onClick={() => setSelectedGenre(genre)}
+                            className={`px-4 py-2 rounded-full text-sm font-medium capitalize whitespace-nowrap transition-all
+                                ${selectedGenre === genre
+                                    ? 'bg-primary-500 text-black'
+                                    : 'bg-dark-600 text-dark-300 hover:text-white hover:bg-dark-500'
+                                }`}
+                        >
+                            {genre}
+                        </button>
+                    ))}
+                </div>
+                {genreLoading ? (
+                    <CardGridSkeleton />
+                ) : (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-                        {recommended.map((song, i) => (
-                            <SongCard key={song.id || i} song={song} songs={recommended} index={i} />
+                        {genreTracks.map((song, i) => (
+                            <SongCard key={song.id || i} song={song} songs={genreTracks} index={i} />
                         ))}
                     </div>
-                </motion.section>
-            )}
+                )}
+            </motion.section>
 
-            {/* Recently Played */}
-            {recent.length > 0 && (
+            {/* Chill & Ambient */}
+            {chillTracks.length > 0 && (
                 <motion.section
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -137,12 +208,12 @@ export default function HomePage() {
                     className="mb-10"
                 >
                     <div className="flex items-center gap-2 mb-5">
-                        <Clock className="w-5 h-5 text-dark-300" />
-                        <h2 className="text-2xl font-bold">Recently Played</h2>
+                        <Headphones className="w-5 h-5 text-blue-400" />
+                        <h2 className="text-2xl font-bold">Chill & Ambient</h2>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-                        {recent.map((song, i) => (
-                            <SongCard key={song.id || i} song={song} songs={recent} index={i} />
+                        {chillTracks.map((song, i) => (
+                            <SongCard key={song.id || i} song={song} songs={chillTracks} index={i} />
                         ))}
                     </div>
                 </motion.section>

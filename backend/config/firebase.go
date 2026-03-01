@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"cloud.google.com/go/firestore"
-	"cloud.google.com/go/storage"
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/auth"
 	"google.golang.org/api/option"
@@ -16,7 +15,6 @@ var (
 	FirebaseApp     *firebase.App
 	AuthClient      *auth.Client
 	FirestoreClient *firestore.Client
-	StorageBucket   *storage.BucketHandle
 )
 
 func InitFirebase() {
@@ -49,19 +47,7 @@ func InitFirebase() {
 	}
 	FirestoreClient = fsClient
 
-	// Initialize Storage
-	bucketName := os.Getenv("FIREBASE_STORAGE_BUCKET")
-	if bucketName == "" {
-		log.Println("Warning: FIREBASE_STORAGE_BUCKET not set, storage features will be unavailable")
-	} else {
-		storageClient, err := storage.NewClient(ctx, opt)
-		if err != nil {
-			log.Fatalf("Failed to initialize Cloud Storage: %v", err)
-		}
-		StorageBucket = storageClient.Bucket(bucketName)
-	}
-
-	log.Println("✅ Firebase initialized successfully")
+	log.Println("✅ Firebase initialized successfully (Auth + Firestore)")
 }
 
 func CloseFirebase() {

@@ -8,7 +8,6 @@ import (
 	"spotify-clone/config"
 	"spotify-clone/models"
 
-	"cloud.google.com/go/firestore"
 	"google.golang.org/api/iterator"
 )
 
@@ -97,12 +96,10 @@ func GetRecommendations(ctx context.Context, userID string, limit int) ([]models
 }
 
 func getRecommendationCandidates(ctx context.Context, limit int) ([]models.Song, error) {
-	query := config.FirestoreClient.Collection("songs").
+	iter := config.FirestoreClient.Collection("songs").
 		Where("status", "==", "approved").
-		OrderBy("playCount", firestore.Desc).
-		Limit(limit)
-
-	iter := query.Documents(ctx)
+		Limit(limit).
+		Documents(ctx)
 	defer iter.Stop()
 
 	var songs []models.Song

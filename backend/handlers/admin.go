@@ -8,7 +8,6 @@ import (
 	"spotify-clone/services"
 	"spotify-clone/utils"
 
-	"cloud.google.com/go/firestore"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/api/iterator"
 )
@@ -22,7 +21,6 @@ func AdminGetUsers(c *gin.Context) {
 	}
 
 	iter := config.FirestoreClient.Collection("users").
-		OrderBy("createdAt", firestore.Desc).
 		Limit(limit).
 		Documents(c.Request.Context())
 	defer iter.Stop()

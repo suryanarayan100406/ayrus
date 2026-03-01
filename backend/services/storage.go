@@ -4,61 +4,53 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"time"
+	"log"
+	"os"
+	"path/filepath"
 
-	"spotify-clone/config"
-
-	"cloud.google.com/go/storage"
 	"github.com/google/uuid"
 )
 
-// UploadFile uploads a file to Firebase Storage and returns the public URL
+// Local uploads directory
+const uploadsDir = "./uploads"
+
+func init() {
+	// Create upload directories
+	dirs := []string{
+		filepath.Join(uploadsDir, "songs"),
+		filepath.Join(uploadsDir, "covers"),
+		filepath.Join(uploadsDir, "images"),
+	}
+	for _, dir := range dirs {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			log.Printf("Warning: could not create dir %s: %v", dir, err)
+		}
+	}
+}
+
+// UploadFile saves a file locally and returns the URL path
 func UploadFile(ctx context.Context, file io.Reader, folder, filename, contentType string) (string, error) {
-	if config.StorageBucket == nil {
-		return "", fmt.Errorf("storage bucket not configured")
-	}
+	uniqueName := fmt.Sprintf("%s-%s", uuid.New().String()[:8], filename)
+	savePath := filepath.Join(uploadsDir, folder, uniqueName)
 
-	objectName := fmt.Sprintf("%s/%s-%s", folder, uuid.New().String(), filename)
-	writer := config.StorageBucket.Object(objectName).NewWriter(ctx)
-	writer.ContentType = contentType
-	writer.CacheControl = "public, max-age=86400"
-
-	if _, err := io.Copy(writer, file); err != nil {
-		return "", fmt.Errorf("failed to upload file: %v", err)
-	}
-
-	if err := writer.Close(); err != nil {
-		return "", fmt.Errorf("failed to close writer: %v", err)
-	}
-
-	// Make the file publicly readable
-	if err := config.StorageBucket.Object(objectName).ACL().Set(ctx, storage.AllUsers, storage.RoleReader); err != nil {
-		// If we can't set public ACL, generate a signed URL instead
-		return getSignedURL(objectName)
-	}
-
-	bucketName := config.StorageBucket.BucketName()
-	url := fmt.Sprintf("https://storage.googleapis.com/%s/%s", bucketName, objectName)
-	return url, nil
-}
-
-func getSignedURL(objectName string) (string, error) {
-	opts := &storage.SignedURLOptions{
-		Method:  "GET",
-		Expires: time.Now().Add(7 * 24 * time.Hour), // 7 days
-	}
-
-	url, err := config.StorageBucket.SignedURL(objectName, opts)
+	out, err := os.Create(savePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate signed URL: %v", err)
+		return "", fmt.Errorf("failed to create file: %v", err)
 	}
+	defer out.Close()
+
+	if _, err := io.Copy(out, file); err != nil {
+		return "", fmt.Errorf("failed to write file: %v", err)
+	}
+
+	// Return a URL path that the Go server will serve
+	url := fmt.Sprintf("/uploads/%s/%s", folder, uniqueName)
 	return url, nil
 }
 
-// DeleteFile deletes a file from Firebase Storage
-func DeleteFile(ctx context.Context, objectName string) error {
-	if config.StorageBucket == nil {
-		return fmt.Errorf("storage bucket not configured")
-	}
-	return config.StorageBucket.Object(objectName).Delete(ctx)
+// DeleteFile deletes a locally stored file
+func DeleteFile(ctx context.Context, objectPath string) error {
+	// objectPath looks like "/uploads/songs/abc-song.mp3"
+	localPath := "." + objectPath
+	return os.Remove(localPath)
 }

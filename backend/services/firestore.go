@@ -45,7 +45,6 @@ func CreateSong(ctx context.Context, song models.Song) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// Update the song with its auto-generated ID
 	_, err = ref.Update(ctx, []firestore.Update{{Path: "id", Value: ref.ID}})
 	return ref.ID, err
 }
@@ -64,16 +63,18 @@ func GetSong(ctx context.Context, id string) (*models.Song, error) {
 }
 
 func GetSongs(ctx context.Context, limit int, genre, status string) ([]models.Song, error) {
-	query := config.FirestoreClient.Collection("songs").Query
-	if status != "" {
-		query = query.Where("status", "==", status)
-	}
-	if genre != "" {
-		query = query.Where("genre", "==", genre)
-	}
-	query = query.OrderBy("createdAt", firestore.Desc).Limit(limit)
+	col := config.FirestoreClient.Collection("songs")
+	var iter *firestore.DocumentIterator
 
-	iter := query.Documents(ctx)
+	if status != "" && genre != "" {
+		iter = col.Where("status", "==", status).Where("genre", "==", genre).Limit(limit).Documents(ctx)
+	} else if status != "" {
+		iter = col.Where("status", "==", status).Limit(limit).Documents(ctx)
+	} else if genre != "" {
+		iter = col.Where("genre", "==", genre).Limit(limit).Documents(ctx)
+	} else {
+		iter = col.Limit(limit).Documents(ctx)
+	}
 	defer iter.Stop()
 
 	var songs []models.Song
@@ -110,13 +111,11 @@ func DeleteSong(ctx context.Context, id string) error {
 }
 
 func GetSongsByArtist(ctx context.Context, artistID string, limit int) ([]models.Song, error) {
-	query := config.FirestoreClient.Collection("songs").
+	iter := config.FirestoreClient.Collection("songs").
 		Where("artistId", "==", artistID).
 		Where("status", "==", "approved").
-		OrderBy("playCount", firestore.Desc).
-		Limit(limit)
-
-	iter := query.Documents(ctx)
+		Limit(limit).
+		Documents(ctx)
 	defer iter.Stop()
 
 	var songs []models.Song
@@ -170,11 +169,9 @@ func GetPlaylist(ctx context.Context, id string) (*models.Playlist, error) {
 }
 
 func GetUserPlaylists(ctx context.Context, userID string) ([]models.Playlist, error) {
-	query := config.FirestoreClient.Collection("playlists").
+	iter := config.FirestoreClient.Collection("playlists").
 		Where("userId", "==", userID).
-		OrderBy("createdAt", firestore.Desc)
-
-	iter := query.Documents(ctx)
+		Documents(ctx)
 	defer iter.Stop()
 
 	var playlists []models.Playlist
@@ -230,13 +227,14 @@ func GetArtist(ctx context.Context, uid string) (*models.Artist, error) {
 }
 
 func GetArtists(ctx context.Context, status string, limit int) ([]models.Artist, error) {
-	query := config.FirestoreClient.Collection("artists").Query
-	if status != "" {
-		query = query.Where("status", "==", status)
-	}
-	query = query.OrderBy("createdAt", firestore.Desc).Limit(limit)
+	col := config.FirestoreClient.Collection("artists")
+	var iter *firestore.DocumentIterator
 
-	iter := query.Documents(ctx)
+	if status != "" {
+		iter = col.Where("status", "==", status).Limit(limit).Documents(ctx)
+	} else {
+		iter = col.Limit(limit).Documents(ctx)
+	}
 	defer iter.Stop()
 
 	var artists []models.Artist
@@ -291,11 +289,9 @@ func GetAlbum(ctx context.Context, id string) (*models.Album, error) {
 }
 
 func GetAlbumsByArtist(ctx context.Context, artistID string) ([]models.Album, error) {
-	query := config.FirestoreClient.Collection("albums").
+	iter := config.FirestoreClient.Collection("albums").
 		Where("artistId", "==", artistID).
-		OrderBy("createdAt", firestore.Desc)
-
-	iter := query.Documents(ctx)
+		Documents(ctx)
 	defer iter.Stop()
 
 	var albums []models.Album
@@ -319,15 +315,12 @@ func GetAlbumsByArtist(ctx context.Context, artistID string) ([]models.Album, er
 
 // ---- Search ----
 
-func SearchSongs(ctx context.Context, query string, limit int) ([]models.Song, error) {
+func SearchSongs(ctx context.Context, queryStr string, limit int) ([]models.Song, error) {
 	// Firestore doesn't support full-text search natively,
-	// so we search by prefix matching on the title
+	// so we fetch approved songs and filter in memory
 	iter := config.FirestoreClient.Collection("songs").
 		Where("status", "==", "approved").
-		OrderBy("title").
-		StartAt(query).
-		EndAt(query + "\uf8ff").
-		Limit(limit).
+		Limit(200).
 		Documents(ctx)
 	defer iter.Stop()
 
@@ -345,18 +338,21 @@ func SearchSongs(ctx context.Context, query string, limit int) ([]models.Song, e
 			continue
 		}
 		song.ID = doc.Ref.ID
-		songs = append(songs, song)
+		// Simple case-insensitive prefix match
+		if containsIgnoreCase(song.Title, queryStr) || containsIgnoreCase(song.ArtistName, queryStr) {
+			songs = append(songs, song)
+			if len(songs) >= limit {
+				break
+			}
+		}
 	}
 	return songs, nil
 }
 
-func SearchArtists(ctx context.Context, query string, limit int) ([]models.Artist, error) {
+func SearchArtists(ctx context.Context, queryStr string, limit int) ([]models.Artist, error) {
 	iter := config.FirestoreClient.Collection("artists").
 		Where("status", "==", "approved").
-		OrderBy("displayName").
-		StartAt(query).
-		EndAt(query + "\uf8ff").
-		Limit(limit).
+		Limit(200).
 		Documents(ctx)
 	defer iter.Stop()
 
@@ -373,9 +369,40 @@ func SearchArtists(ctx context.Context, query string, limit int) ([]models.Artis
 		if err := doc.DataTo(&artist); err != nil {
 			continue
 		}
-		artists = append(artists, artist)
+		if containsIgnoreCase(artist.DisplayName, queryStr) {
+			artists = append(artists, artist)
+			if len(artists) >= limit {
+				break
+			}
+		}
 	}
 	return artists, nil
+}
+
+func containsIgnoreCase(s, substr string) bool {
+	if len(substr) == 0 {
+		return true
+	}
+	sLower := toLower(s)
+	subLower := toLower(substr)
+	for i := 0; i <= len(sLower)-len(subLower); i++ {
+		if sLower[i:i+len(subLower)] == subLower {
+			return true
+		}
+	}
+	return false
+}
+
+func toLower(s string) string {
+	b := make([]byte, len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= 'A' && c <= 'Z' {
+			c += 32
+		}
+		b[i] = c
+	}
+	return string(b)
 }
 
 // ---- Analytics ----

@@ -86,7 +86,6 @@ func SearchYouTubeMusic(query string, limit int) ([]PipedTrack, error) {
 		"--no-playlist",
 		"--no-cache-dir",
 		"--flat-playlist",
-		"--extractor-args", "youtube:player_client=android",
 		"--no-warnings",
 		"--no-check-certificates",
 		"--socket-timeout", "10",
@@ -195,7 +194,6 @@ func GetYouTubeAudioURL(videoID string) (*PipedStreamInfo, error) {
 		"--no-playlist",                       // Single video only
 		"--no-cache-dir",                      // Don't waste time on cache
 		"-f", "bestaudio[ext=m4a]/bestaudio",  // Best audio, prefer m4a
-		"--extractor-args", "youtube:player_client=android", // Fast decryption
 		"--no-warnings",
 		"--no-check-certificates",
 		"--socket-timeout", "10",

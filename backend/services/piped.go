@@ -65,14 +65,20 @@ func getYTDLPPath() string {
 	return absPath
 }
 
-// SearchYouTubeMusic searches YouTube for music using yt-dlp
 func SearchYouTubeMusic(query string, limit int) ([]PipedTrack, error) {
-	if limit <= 0 || limit > 20 {
+	if limit <= 0 || limit > 30 {
 		limit = 10
 	}
 
+	// Fetch 3x the requested limit to have a large pool to filter & sort by popularity
+	fetchCount := limit * 3
 	ytdlp := getYTDLPPath()
-	searchQuery := fmt.Sprintf("ytsearch%d:%s song music", limit, query)
+	searchQuery := strings.TrimSpace(query)
+	// Add "official song" to bias YouTube towards actual music if not already present
+	if !strings.Contains(strings.ToLower(searchQuery), "song") && !strings.Contains(strings.ToLower(searchQuery), "music") {
+		searchQuery += " official song"
+	}
+	searchStr := fmt.Sprintf("ytsearch%d:%s", fetchCount, searchQuery)
 
 	cmd := exec.Command(ytdlp,
 		"--dump-json",
@@ -80,7 +86,7 @@ func SearchYouTubeMusic(query string, limit int) ([]PipedTrack, error) {
 		"--no-warnings",
 		"--no-check-certificates",
 		"--socket-timeout", "10",
-		searchQuery,
+		searchStr,
 	)
 
 	output, err := cmd.Output()
@@ -92,7 +98,7 @@ func SearchYouTubeMusic(query string, limit int) ([]PipedTrack, error) {
 	}
 
 	// Parse JSONL (one JSON object per line)
-	var tracks []PipedTrack
+	var allTracks []PipedTrack
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -110,8 +116,16 @@ func SearchYouTubeMusic(query string, limit int) ([]PipedTrack, error) {
 			continue
 		}
 
-		// Clean up channel name (remove " - Topic")
+		// Filter out Shorts (<60s) and long mixes/compilations (>12m)
+		if result.Duration < 60 || result.Duration > 720 {
+			continue
+		}
+
+		// Clean up channel name (remove " - Topic" and "Official")
 		artist := strings.TrimSuffix(result.Channel, " - Topic")
+		artist = strings.TrimSuffix(artist, "Official")
+		artist = strings.TrimSuffix(artist, "VEVO")
+		artist = strings.TrimSpace(artist)
 		if artist == "" {
 			artist = "Unknown Artist"
 		}
@@ -122,7 +136,7 @@ func SearchYouTubeMusic(query string, limit int) ([]PipedTrack, error) {
 			thumbnail = fmt.Sprintf("https://i.ytimg.com/vi/%s/hqdefault.jpg", result.ID)
 		}
 
-		tracks = append(tracks, PipedTrack{
+		allTracks = append(allTracks, PipedTrack{
 			VideoID:   result.ID,
 			Title:     result.Title,
 			Artist:    artist,
@@ -132,7 +146,21 @@ func SearchYouTubeMusic(query string, limit int) ([]PipedTrack, error) {
 		})
 	}
 
-	return tracks, nil
+	// Sort tracks by views descending (most popular first)
+	for i := 0; i < len(allTracks); i++ {
+		for j := i + 1; j < len(allTracks); j++ {
+			if allTracks[i].Views < allTracks[j].Views {
+				allTracks[i], allTracks[j] = allTracks[j], allTracks[i]
+			}
+		}
+	}
+
+	// Return top `limit` tracks
+	if len(allTracks) > limit {
+		return allTracks[:limit], nil
+	}
+
+	return allTracks, nil
 }
 
 // GetYouTubeTrending gets trending music from YouTube

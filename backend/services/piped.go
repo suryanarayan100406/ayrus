@@ -70,8 +70,8 @@ func SearchYouTubeMusic(query string, limit int) ([]PipedTrack, error) {
 		limit = 10
 	}
 
-	// Fetch 3x the requested limit to have a large pool to filter & sort by popularity
-	fetchCount := limit * 3
+	// Fetch limit + 10 tracks to have a healthy pool to filter/sort while keeping yt-dlp fast
+	fetchCount := limit + 10
 	ytdlp := getYTDLPPath()
 	searchQuery := strings.TrimSpace(query)
 	// Add "official song" to bias YouTube towards actual music if not already present

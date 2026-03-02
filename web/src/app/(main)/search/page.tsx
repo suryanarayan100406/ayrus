@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Search as SearchIcon, X, Music, Youtube } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { discoverJamendo, discoverYouTube } from '@/lib/api';
@@ -58,18 +58,27 @@ export default function SearchPage() {
     const [browseResults, setBrowseResults] = useState<Song[]>([]);
     const [browsing, setBrowsing] = useState(false);
 
+    // Track the latest search request ID to ignore stale responses
+    const searchIdRef = useRef(0);
+
     // Search YouTube + Jamendo in parallel
     const handleSearch = useCallback(async (q: string) => {
         if (!q.trim()) {
             setYtResults([]); setJamendoResults([]);
             return;
         }
+
+        const currentSearchId = ++searchIdRef.current;
         setLoading(true);
         try {
             const [yt, jam] = await Promise.allSettled([
-                discoverYouTube({ q, limit: 15 }),
-                discoverJamendo({ q, limit: 15 }),
+                // Reduced limit to 10 to speed up backend yt-dlp query
+                discoverYouTube({ q, limit: 10 }),
+                discoverJamendo({ q, limit: 10 }),
             ]);
+
+            // If another search was fired while we were waiting, ignore these results
+            if (searchIdRef.current !== currentSearchId) return;
 
             if (yt.status === 'fulfilled' && Array.isArray(yt.value?.data)) {
                 setYtResults(yt.value.data.map(mapYouTube));
@@ -83,7 +92,10 @@ export default function SearchPage() {
                 setJamendoResults([]);
             }
         } catch { }
-        setLoading(false);
+
+        if (searchIdRef.current === currentSearchId) {
+            setLoading(false);
+        }
     }, []);
 
     // Debounced search

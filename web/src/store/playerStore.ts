@@ -133,8 +133,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         set({ isPlaying: true });
     },
 
-    nextSong: () => {
-        const { queue, queueIndex, shuffle, repeat } = get();
+    nextSong: async () => {
+        const { queue, queueIndex, shuffle, repeat, currentSong } = get();
         if (queue.length === 0) return;
 
         let nextIndex: number;
@@ -148,14 +148,43 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             if (repeat === 'all') {
                 nextIndex = 0;
             } else {
-                set({ isPlaying: false });
-                return;
+                // Auto-Play Feature: Fetch similar song when queue ends
+                if (currentSong) {
+                    try {
+                        const { discoverSimilar } = await import('@/lib/api');
+                        const res = await discoverSimilar({ artist: currentSong.artistName, title: currentSong.title, limit: 1 });
+                        if (res.data && res.data.length > 0) {
+                            const t = res.data[0];
+                            const newSong: Song = {
+                                id: `yt-${t.videoId}`, title: t.title,
+                                artistId: '', artistName: t.artist?.replace(/ - Topic$/, '') || 'Unknown Artist',
+                                albumName: '', coverURL: t.thumbnail,
+                                audioURL: `youtube:${t.videoId}`,
+                                source: 'youtube', duration: t.duration,
+                                playCount: 0, genre: '',
+                            };
+                            get().addToQueue(newSong);
+                            nextIndex = queue.length; // Play newly added song
+                        } else {
+                            set({ isPlaying: false });
+                            return;
+                        }
+                    } catch (e) {
+                        console.error('Auto-Play failed:', e);
+                        set({ isPlaying: false });
+                        return;
+                    }
+                } else {
+                    set({ isPlaying: false });
+                    return;
+                }
             }
         }
 
-        const nextSong = queue[nextIndex];
+        // Must fetch queue fresh in case auto-play added to it
+        const latestQueue = get().queue;
+        const nextSong = latestQueue[nextIndex];
         set({ queueIndex: nextIndex });
-        // Delegate to playSong which handles YouTube lazy loading
         get().playSong(nextSong);
     },
 

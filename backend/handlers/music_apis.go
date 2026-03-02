@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -222,3 +223,63 @@ func GetYouTubeStream(c *gin.Context) {
 	})
 }
 
+// DiscoverSimilar gets similar tracks based on artist, title, or genre
+func DiscoverSimilar(c *gin.Context) {
+	artist := c.Query("artist")
+	title := c.Query("title")
+	limitStr := c.DefaultQuery("limit", "15")
+	limit, _ := strconv.Atoi(limitStr)
+
+	var query string
+	if artist != "" && artist != "Unknown Artist" {
+		query = fmt.Sprintf("%s %s similar songs mix", artist, title)
+	} else if title != "" {
+		query = title + " song"
+	} else {
+		query = "trending hits"
+	}
+
+	tracks, err := services.SearchYouTubeMusic(query, limit)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Failed to get similar tracks")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, tracks)
+}
+
+// DiscoverFeed gets personalized recommendations based on recently played
+func DiscoverFeed(c *gin.Context) {
+	uid, exists := c.Get("uid")
+	if !exists {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	user, err := services.GetUser(c.Request.Context(), uid.(string))
+	query := "recommended trending music 2026"
+	
+	if err == nil && len(user.RecentlyPlayed) > 0 {
+		// Pick the most recently played song to base the feed on
+		lastPlayedID := user.RecentlyPlayed[len(user.RecentlyPlayed)-1]
+		song, err := services.GetSong(c.Request.Context(), lastPlayedID)
+		if err == nil {
+			if song.ArtistName != "" && song.ArtistName != "Unknown Artist" {
+				query = fmt.Sprintf("%s best songs mix", song.ArtistName)
+			} else if song.Title != "" {
+				query = fmt.Sprintf("%s similar songs mix", song.Title)
+			}
+		}
+	}
+
+	limitStr := c.DefaultQuery("limit", "20")
+	limit, _ := strconv.Atoi(limitStr)
+
+	tracks, err := services.SearchYouTubeMusic(query, limit)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Failed to get personal feed")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, tracks)
+}

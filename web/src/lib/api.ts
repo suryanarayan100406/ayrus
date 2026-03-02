@@ -124,6 +124,14 @@ export const discoverYouTube = (params?: { q?: string; limit?: number }) => {
 };
 export const getYouTubeStream = (videoId: string) =>
     apiFetch(`/discover/youtube/stream/${videoId}`);
+export const discoverSimilar = (params?: { artist?: string; title?: string; limit?: number }) => {
+    const qs = new URLSearchParams(params as Record<string, string>).toString();
+    return apiFetch(`/discover/similar?${qs}`);
+};
+export const discoverFeed = (params?: { limit?: number }) => {
+    const qs = new URLSearchParams(params as Record<string, string>).toString();
+    return apiFetch(`/discover/feed?${qs}`);
+};
 
 // Admin
 export const adminGetDashboard = () => apiFetch('/admin/dashboard');

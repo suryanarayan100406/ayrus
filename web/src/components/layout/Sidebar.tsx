@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Search, Library, PlusCircle, Heart, Music, Mic2, Shield, LogOut, Sun, Moon } from 'lucide-react';
+import { Home, Search, Library, PlusCircle, Heart, Music, Mic2, Shield, LogOut, Sun, Moon, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
@@ -10,6 +10,7 @@ import { useUIStore } from '@/store/uiStore';
 const mainLinks = [
     { href: '/home', label: 'Home', icon: Home },
     { href: '/search', label: 'Search', icon: Search },
+    { href: '/feed', label: 'Feed', icon: Sparkles },
     { href: '/library', label: 'Your Library', icon: Library },
 ];
 

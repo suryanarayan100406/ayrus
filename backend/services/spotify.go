@@ -125,3 +125,40 @@ func SearchSpotifyMetadata(query string, limit int) (*SpotifySearchResult, error
 
 	return &result, nil
 }
+
+// GetSpotifyFeaturedTracks returns popular tracks using search
+func GetSpotifyFeaturedTracks(limit int) ([]SpotifyTrack, error) {
+	token, err := getSpotifyToken()
+	if err != nil {
+		return nil, err
+	}
+
+	// Search for popular current tracks — more reliable than playlist endpoint
+	apiURL := fmt.Sprintf(
+		"https://api.spotify.com/v1/search?q=%s&type=track&limit=%d&market=US",
+		url.QueryEscape("year:2025 tag:new"), limit,
+	)
+
+	req, _ := http.NewRequest("GET", apiURL, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := spotifyClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("spotify API error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var result SpotifySearchResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode spotify response: %v", err)
+	}
+
+	// Filter to only tracks with preview URLs
+	var tracks []SpotifyTrack
+	for _, t := range result.Tracks.Items {
+		if t.PreviewURL != "" {
+			tracks = append(tracks, t)
+		}
+	}
+	return tracks, nil
+}

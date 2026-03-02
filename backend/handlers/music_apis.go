@@ -110,22 +110,60 @@ func GetArchiveFiles(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, filesWithURLs)
 }
 
-// SearchSpotifyMetadata searches Spotify for metadata enrichment
+// SearchSpotifyMeta searches Spotify for metadata (kept for backwards compat)
 func SearchSpotifyMeta(c *gin.Context) {
-	query := c.Query("q")
-	if query == "" {
-		utils.ErrorResponse(c, http.StatusBadRequest, "Search query required")
-		return
-	}
-
-	limitStr := c.DefaultQuery("limit", "10")
-	limit, _ := strconv.Atoi(limitStr)
-
-	result, err := services.SearchSpotifyMetadata(query, limit)
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Spotify metadata unavailable: "+err.Error())
-		return
-	}
-
-	utils.SuccessResponse(c, http.StatusOK, result)
+	DiscoverSpotify(c)
 }
+
+// DiscoverSpotify searches or gets trending from Spotify
+func DiscoverSpotify(c *gin.Context) {
+	query := c.Query("q")
+	limitStr := c.DefaultQuery("limit", "20")
+	limit, _ := strconv.Atoi(limitStr)
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+
+	if query != "" {
+		result, err := services.SearchSpotifyMetadata(query, limit)
+		if err != nil {
+			utils.ErrorResponse(c, http.StatusServiceUnavailable, "Spotify unavailable: "+err.Error())
+			return
+		}
+		utils.SuccessResponse(c, http.StatusOK, result)
+	} else {
+		tracks, err := services.GetSpotifyFeaturedTracks(limit)
+		if err != nil {
+			utils.ErrorResponse(c, http.StatusServiceUnavailable, "Spotify unavailable: "+err.Error())
+			return
+		}
+		utils.SuccessResponse(c, http.StatusOK, tracks)
+	}
+}
+
+// DiscoverDeezer searches or gets charts from Deezer
+func DiscoverDeezer(c *gin.Context) {
+	query := c.Query("q")
+	limitStr := c.DefaultQuery("limit", "20")
+	limit, _ := strconv.Atoi(limitStr)
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	var tracks interface{}
+	var err error
+
+	if query != "" {
+		tracks, err = services.SearchDeezer(query, limit)
+	} else {
+		tracks, err = services.GetDeezerChart(limit)
+	}
+
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Deezer service unavailable: "+err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, tracks)
+}
+

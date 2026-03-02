@@ -110,6 +110,14 @@ export const discoverArchive = (params?: { q?: string; limit?: number }) => {
     const qs = new URLSearchParams(params as Record<string, string>).toString();
     return apiFetch(`/discover/archive?${qs}`);
 };
+export const discoverDeezer = (params?: { q?: string; limit?: number }) => {
+    const qs = new URLSearchParams(params as Record<string, string>).toString();
+    return apiFetch(`/discover/deezer?${qs}`);
+};
+export const discoverSpotify = (params?: { q?: string; limit?: number }) => {
+    const qs = new URLSearchParams(params as Record<string, string>).toString();
+    return apiFetch(`/discover/spotify?${qs}`);
+};
 
 // Admin
 export const adminGetDashboard = () => apiFetch('/admin/dashboard');

@@ -82,7 +82,8 @@ func SetupRouter() *gin.Engine {
 				discover.GET("/fma", handlers.DiscoverFMA)
 				discover.GET("/archive", handlers.DiscoverArchive)
 				discover.GET("/archive/:identifier/files", handlers.GetArchiveFiles)
-				discover.GET("/spotify", handlers.SearchSpotifyMeta)
+				discover.GET("/spotify", handlers.DiscoverSpotify)
+				discover.GET("/deezer", handlers.DiscoverDeezer)
 			}
 
 			// Upload routes

@@ -66,7 +66,7 @@ export default function LoginPage() {
                         <div className="w-12 h-12 rounded-full bg-primary-500 flex items-center justify-center">
                             <Music className="w-6 h-6 text-black" />
                         </div>
-                        <span className="text-2xl font-bold">Ayrus Music</span>
+                        <span className="text-2xl font-bold">Qvox Music</span>
                     </Link>
                 </div>
 

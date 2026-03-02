@@ -60,28 +60,36 @@ export default function HomePage() {
 
     useEffect(() => {
         async function fetchData() {
+            // Pick a random YouTube query to keep trending fresh
+            const ytQueries = ['trending music 2024 hits', 'global top songs', 'popular music hits', 'viral songs 2025', 'latest pop music', 'new english songs'];
+            const randomYtQuery = ytQueries[Math.floor(Math.random() * ytQueries.length)];
+
             const results = await Promise.allSettled([
-                discoverJamendo({ limit: 20 }),
-                discoverYouTube({ q: 'trending music 2025 songs', limit: 15 }),
-                discoverJamendo({ genre: 'electronic', limit: 10 }),
-                discoverJamendo({ genre: 'ambient', limit: 10 }),
-                discoverJamendo({ genre: 'pop', limit: 10 }),
+                discoverJamendo({ limit: 30 }), // Fetch more to shuffle
+                discoverYouTube({ q: randomYtQuery, limit: 15 }),
+                discoverJamendo({ genre: 'electronic', limit: 20 }),
+                discoverJamendo({ genre: 'ambient', limit: 20 }),
+                discoverJamendo({ genre: 'pop', limit: 20 }),
             ]);
 
             const [trendingR, ytR, energeticR, chillR, romanticR] = results;
 
+            const shuffle = <T,>(arr: T[]): T[] => {
+                return [...arr].sort(() => Math.random() - 0.5).slice(0, 10); // Return 10 random items
+            };
+
             if (trendingR.status === 'fulfilled' && trendingR.value?.data)
-                setTrending(trendingR.value.data.map(mapJamendo));
+                setTrending(shuffle(trendingR.value.data).map(mapJamendo));
             if (ytR.status === 'fulfilled' && ytR.value?.data) {
                 const data = Array.isArray(ytR.value.data) ? ytR.value.data : [];
                 setYtMusic(data.map(mapYouTube));
             }
             if (energeticR.status === 'fulfilled' && energeticR.value?.data)
-                setEnergetic(energeticR.value.data.map(mapJamendo));
+                setEnergetic(shuffle(energeticR.value.data).map(mapJamendo));
             if (chillR.status === 'fulfilled' && chillR.value?.data)
-                setChill(chillR.value.data.map(mapJamendo));
+                setChill(shuffle(chillR.value.data).map(mapJamendo));
             if (romanticR.status === 'fulfilled' && romanticR.value?.data)
-                setRomantic(romanticR.value.data.map(mapJamendo));
+                setRomantic(shuffle(romanticR.value.data).map(mapJamendo));
 
             setLoading(false);
         }
@@ -110,7 +118,10 @@ export default function HomePage() {
     }, [selectedGenre]);
 
     const greeting = getGreeting();
-    const quickPlay = [...ytMusic.slice(0, 3), ...trending.slice(0, 3)];
+
+    // Mix youtube and jamendo randomly for quick play
+    const quickPlayPool = [...ytMusic.slice(0, 4), ...trending.slice(0, 4)];
+    const quickPlay = [...quickPlayPool].sort(() => Math.random() - 0.5).slice(0, 6);
 
     return (
         <div className="p-6 lg:p-8">

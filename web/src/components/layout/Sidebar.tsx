@@ -31,7 +31,7 @@ export default function Sidebar() {
                     <div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center flex-shrink-0">
                         <Music className="w-5 h-5 text-black" />
                     </div>
-                    {sidebarOpen && <span className="text-xl font-bold">Ayrus</span>}
+                    {sidebarOpen && <span className="text-xl font-bold">Qvox</span>}
                 </Link>
             </div>
 

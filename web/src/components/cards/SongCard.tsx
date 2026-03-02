@@ -36,12 +36,17 @@ export default function SongCard({ song, songs, index = 0 }: SongCardProps) {
                         </div>
                     )}
                 </div>
-                <div className="play-button-overlay">
+                <div className="play-button-overlay flex items-center justify-center">
                     <button className="w-12 h-12 rounded-full bg-primary-500 flex items-center justify-center
                            shadow-xl shadow-primary-500/25 hover:scale-110 transition-transform">
                         <Play className="w-5 h-5 text-black ml-0.5" />
                     </button>
                 </div>
+                {song.duration > 0 && (
+                    <div className="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] px-1.5 py-0.5 rounded shadow-sm font-medium z-10 pointer-events-none">
+                        {Math.floor(song.duration / 60)}:{(song.duration % 60).toString().padStart(2, '0')}
+                    </div>
+                )}
             </div>
             <h3 className="font-semibold text-sm truncate">{song.title}</h3>
             <p className="text-xs text-dark-300 mt-1 truncate">{song.artistName}</p>

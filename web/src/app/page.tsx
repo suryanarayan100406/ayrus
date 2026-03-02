@@ -48,7 +48,7 @@ export default function LandingPage() {
                         transition={{ delay: 0.2, duration: 0.8 }}
                         className="text-6xl md:text-8xl font-black mb-6 tracking-tight"
                     >
-                        <span className="text-gradient">Ayrus</span>
+                        <span className="text-gradient">Qvox</span>
                         <span className="text-white"> Music</span>
                     </motion.h1>
 
@@ -178,7 +178,7 @@ export default function LandingPage() {
 
             {/* Footer */}
             <footer className="border-t border-white/5 py-8 px-4 text-center text-dark-400 text-sm">
-                <p>© 2026 Ayrus Music. Powered by Creative Commons music.</p>
+                <p>© 2026 Qvox Music. Powered by Creative Commons music.</p>
             </footer>
         </div>
     );

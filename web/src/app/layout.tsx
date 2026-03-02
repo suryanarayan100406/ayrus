@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import '@/styles/globals.css';
 
 export const metadata: Metadata = {
-    title: 'Ayrus Music - Stream Free Music',
+    title: 'Qvox Music - Stream Free Music',
     description: 'A modern music streaming platform with free Creative Commons music. Discover, stream, and create playlists.',
     keywords: 'music, streaming, free, creative commons, playlists',
 };

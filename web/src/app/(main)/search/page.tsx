@@ -151,7 +151,7 @@ export default function SearchPage() {
             {query ? (
                 <div>
                     <h2 className="text-2xl font-bold mb-5">
-                        {loading ? 'Searching YouTube & Jamendo...' : `Results for "${query}"`}
+                        {loading ? 'Searching...' : `Results for "${query}"`}
                     </h2>
 
                     {loading ? <CardGridSkeleton /> : hasResults ? (

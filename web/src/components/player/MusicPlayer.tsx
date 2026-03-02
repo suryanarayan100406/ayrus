@@ -9,7 +9,7 @@ import { formatDuration, cn } from '@/lib/utils';
 export default function MusicPlayer() {
     const audioRef = useRef<HTMLAudioElement>(null);
     const {
-        currentSong, isPlaying, volume, progress, duration,
+        currentSong, isPlaying, isLoading, volume, progress, duration,
         shuffle, repeat, togglePlay, nextSong, prevSong,
         setVolume, setProgress, setDuration, toggleShuffle,
         toggleRepeat, setAudioRef,
@@ -111,7 +111,9 @@ export default function MusicPlayer() {
                                     className="w-9 h-9 rounded-full bg-white flex items-center justify-center
                            hover:scale-110 transition-transform"
                                 >
-                                    {isPlaying ? (
+                                    {isLoading ? (
+                                        <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                                    ) : isPlaying ? (
                                         <Pause className="w-5 h-5 text-black" />
                                     ) : (
                                         <Play className="w-5 h-5 text-black ml-0.5" />

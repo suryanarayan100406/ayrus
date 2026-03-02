@@ -20,6 +20,7 @@ interface PlayerState {
     queue: Song[];
     queueIndex: number;
     isPlaying: boolean;
+    isLoading: boolean;
     volume: number;
     progress: number;
     duration: number;
@@ -49,6 +50,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     queue: [],
     queueIndex: -1,
     isPlaying: false,
+    isLoading: false,
     volume: 0.7,
     progress: 0,
     duration: 0,
@@ -61,6 +63,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         set({
             currentSong: song,
             isPlaying: true,
+            isLoading: true,
             progress: 0,
         });
 
@@ -83,13 +86,43 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
                 }
             } catch (e) {
                 console.error('Failed to get YouTube audio:', e);
+                set({ isLoading: false, isPlaying: false });
                 return;
             }
         }
 
         if (audioRef) {
             audioRef.src = audioURL;
-            audioRef.play().catch(() => { });
+            audioRef.load();
+            audioRef.play().then(() => {
+                set({ isLoading: false });
+
+                // --- Silent Prefetch for Next Song in Queue ---
+                const { queue, queueIndex, shuffle } = get();
+                if (queue.length > 0) {
+                    let nextIndex: number;
+                    if (shuffle) {
+                        nextIndex = Math.floor(Math.random() * queue.length);
+                    } else {
+                        nextIndex = queueIndex + 1;
+                    }
+
+                    if (nextIndex < queue.length) {
+                        const nextS = queue[nextIndex];
+                        if (nextS && nextS.audioURL.startsWith('youtube:')) {
+                            const vId = nextS.audioURL.replace('youtube:', '');
+                            import('@/lib/api').then(api => {
+                                // Calls backend to cache audio URL, but ignores result here
+                                api.getYouTubeStream(vId).catch(() => { });
+                            });
+                        }
+                    }
+                }
+
+            }).catch(e => {
+                console.error("Audio play error", e);
+                set({ isLoading: false, isPlaying: false });
+            });
         }
     },
 

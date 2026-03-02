@@ -84,6 +84,8 @@ func SetupRouter() *gin.Engine {
 				discover.GET("/archive/:identifier/files", handlers.GetArchiveFiles)
 				discover.GET("/spotify", handlers.DiscoverSpotify)
 				discover.GET("/deezer", handlers.DiscoverDeezer)
+				discover.GET("/youtube", handlers.DiscoverYouTube)
+				discover.GET("/youtube/stream/:videoId", handlers.GetYouTubeStream)
 			}
 
 			// Upload routes

@@ -2,29 +2,23 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, TrendingUp, Music2, Sparkles, Heart, Headphones, Zap, Sun } from 'lucide-react';
+import { Play, TrendingUp, Music2, Sparkles, Heart, Headphones, Zap, Youtube } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { usePlayerStore, Song } from '@/store/playerStore';
-import { discoverJamendo, discoverSpotify, discoverDeezer } from '@/lib/api';
+import { discoverJamendo, discoverYouTube } from '@/lib/api';
 import { getGreeting } from '@/lib/utils';
 import SongCard from '@/components/cards/SongCard';
 import { CardGridSkeleton } from '@/components/skeletons/Skeletons';
 
-// Map any source track to our Song format
+// ---- Mappers ----
 interface JamendoTrack {
     id: string; name: string; duration: number; artist_id: string;
     artist_name: string; album_name: string; album_image: string;
     audio: string; image: string;
 }
-interface DeezerTrack {
-    id: number; title: string; duration: number; preview: string;
-    artist: { id: number; name: string };
-    album: { id: number; title: string; cover_medium: string; cover_xl: string };
-}
-interface SpotifyTrack {
-    id: string; name: string; duration_ms: number; preview_url: string;
-    album: { name: string; images: { url: string }[] };
-    artists: { id: string; name: string }[];
+interface PipedTrack {
+    videoId: string; title: string; artist: string; thumbnail: string;
+    duration: number; views: number; audioUrl?: string;
 }
 
 function mapJamendo(t: JamendoTrack): Song {
@@ -35,23 +29,17 @@ function mapJamendo(t: JamendoTrack): Song {
         source: 'jamendo', duration: t.duration, playCount: 0, genre: '',
     };
 }
-function mapDeezer(t: DeezerTrack): Song {
+
+function mapYouTube(t: PipedTrack): Song {
+    // Clean up artist name (remove " - Topic" suffix from YouTube Music channels)
+    const artist = t.artist?.replace(/ - Topic$/, '') || 'Unknown Artist';
     return {
-        id: `dz-${t.id}`, title: t.title, artistId: String(t.artist.id),
-        artistName: t.artist.name, albumName: t.album.title,
-        coverURL: t.album.cover_xl || t.album.cover_medium,
-        audioURL: t.preview, source: 'deezer',
-        duration: t.duration, playCount: 0, genre: '',
-    };
-}
-function mapSpotify(t: SpotifyTrack): Song | null {
-    if (!t.preview_url) return null;
-    return {
-        id: `sp-${t.id}`, title: t.name,
-        artistId: t.artists?.[0]?.id || '', artistName: t.artists?.map(a => a.name).join(', ') || '',
-        albumName: t.album?.name || '', coverURL: t.album?.images?.[0]?.url || '',
-        audioURL: t.preview_url, source: 'spotify',
-        duration: Math.round(t.duration_ms / 1000), playCount: 0, genre: '',
+        id: `yt-${t.videoId}`, title: t.title,
+        artistId: '', artistName: artist,
+        albumName: '', coverURL: t.thumbnail,
+        audioURL: `youtube:${t.videoId}`, // Lazy-loaded by playerStore
+        source: 'youtube', duration: t.duration,
+        playCount: 0, genre: '',
     };
 }
 
@@ -61,32 +49,33 @@ export default function HomePage() {
     const { userProfile } = useAuthStore();
     const { playQueue } = usePlayerStore();
     const [trending, setTrending] = useState<Song[]>([]);
+    const [ytMusic, setYtMusic] = useState<Song[]>([]);
     const [energetic, setEnergetic] = useState<Song[]>([]);
     const [chill, setChill] = useState<Song[]>([]);
     const [romantic, setRomantic] = useState<Song[]>([]);
-    const [spotifyTop, setSpotifyTop] = useState<Song[]>([]);
-    const [deezerChart, setDeezerChart] = useState<Song[]>([]);
     const [genreTracks, setGenreTracks] = useState<Song[]>([]);
     const [selectedGenre, setSelectedGenre] = useState('pop');
     const [loading, setLoading] = useState(true);
     const [genreLoading, setGenreLoading] = useState(false);
 
-    // Fetch from all sources on mount
     useEffect(() => {
         async function fetchData() {
             const results = await Promise.allSettled([
-                discoverJamendo({ limit: 20 }),                    // trending
-                discoverJamendo({ genre: 'electronic', limit: 10 }), // energetic
-                discoverJamendo({ genre: 'ambient', limit: 10 }),    // chill
-                discoverJamendo({ genre: 'pop', limit: 10 }),        // romantic/pop
-                discoverSpotify({ limit: 25 }),                      // spotify (may return null)
-                discoverDeezer({ limit: 25 }),                       // deezer (may be geo-blocked)
+                discoverJamendo({ limit: 20 }),
+                discoverYouTube({ q: 'trending music 2025 songs', limit: 15 }),
+                discoverJamendo({ genre: 'electronic', limit: 10 }),
+                discoverJamendo({ genre: 'ambient', limit: 10 }),
+                discoverJamendo({ genre: 'pop', limit: 10 }),
             ]);
 
-            const [trendingR, energeticR, chillR, romanticR, spotifyR, deezerR] = results;
+            const [trendingR, ytR, energeticR, chillR, romanticR] = results;
 
             if (trendingR.status === 'fulfilled' && trendingR.value?.data)
                 setTrending(trendingR.value.data.map(mapJamendo));
+            if (ytR.status === 'fulfilled' && ytR.value?.data) {
+                const data = Array.isArray(ytR.value.data) ? ytR.value.data : [];
+                setYtMusic(data.map(mapYouTube));
+            }
             if (energeticR.status === 'fulfilled' && energeticR.value?.data)
                 setEnergetic(energeticR.value.data.map(mapJamendo));
             if (chillR.status === 'fulfilled' && chillR.value?.data)
@@ -94,31 +83,26 @@ export default function HomePage() {
             if (romanticR.status === 'fulfilled' && romanticR.value?.data)
                 setRomantic(romanticR.value.data.map(mapJamendo));
 
-            // Spotify (may have no preview URLs)
-            if (spotifyR.status === 'fulfilled' && spotifyR.value?.data) {
-                const data = spotifyR.value.data;
-                const tracks = Array.isArray(data) ? data : data?.tracks?.items || [];
-                const mapped = tracks.map(mapSpotify).filter(Boolean) as Song[];
-                if (mapped.length > 0) setSpotifyTop(mapped);
-            }
-            // Deezer (may be geo-blocked)
-            if (deezerR.status === 'fulfilled' && deezerR.value?.data) {
-                const data = Array.isArray(deezerR.value.data) ? deezerR.value.data : [];
-                if (data.length > 0) setDeezerChart(data.map(mapDeezer));
-            }
-
             setLoading(false);
         }
         fetchData();
     }, []);
 
-    // Genre browsing
     useEffect(() => {
         async function fetchGenre() {
             setGenreLoading(true);
             try {
-                const res = await discoverJamendo({ genre: selectedGenre, limit: 12 });
-                if (res.data) setGenreTracks(res.data.map(mapJamendo));
+                // Fetch from both YouTube and Jamendo for genre
+                const [jamRes, ytRes] = await Promise.allSettled([
+                    discoverJamendo({ genre: selectedGenre, limit: 10 }),
+                    discoverYouTube({ q: `${selectedGenre} songs music`, limit: 8 }),
+                ]);
+                const tracks: Song[] = [];
+                if (ytRes.status === 'fulfilled' && Array.isArray(ytRes.value?.data))
+                    tracks.push(...ytRes.value.data.map(mapYouTube));
+                if (jamRes.status === 'fulfilled' && jamRes.value?.data)
+                    tracks.push(...jamRes.value.data.map(mapJamendo));
+                setGenreTracks(tracks);
             } catch { }
             setGenreLoading(false);
         }
@@ -126,7 +110,7 @@ export default function HomePage() {
     }, [selectedGenre]);
 
     const greeting = getGreeting();
-    const quickPlay = trending.slice(0, 6);
+    const quickPlay = [...ytMusic.slice(0, 3), ...trending.slice(0, 3)];
 
     return (
         <div className="p-6 lg:p-8">
@@ -136,16 +120,16 @@ export default function HomePage() {
                     {greeting}, {userProfile?.displayName || 'there'}
                 </h1>
                 <p className="text-dark-300 text-lg">
-                    Discover free music from 600,000+ tracks worldwide
+                    Millions of songs from YouTube & Jamendo — all free
                 </p>
             </motion.div>
 
-            {/* Quick Play Grid */}
+            {/* Quick Play */}
             {quickPlay.length > 0 && (
                 <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="mb-10">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {quickPlay.map((song, i) => (
-                            <button key={song.id} onClick={() => playQueue(trending, i)}
+                            <button key={song.id} onClick={() => playQueue(quickPlay, i)}
                                 className="flex items-center gap-4 bg-dark-600/50 hover:bg-dark-500/50 rounded-lg overflow-hidden transition-all duration-300 group">
                                 <div className="w-16 h-16 flex-shrink-0 bg-dark-600">
                                     {song.coverURL ? <img src={song.coverURL} alt="" className="w-full h-full object-cover" />
@@ -166,39 +150,23 @@ export default function HomePage() {
                 </motion.section>
             )}
 
-            {/* Spotify Global Top (shows only if available) */}
-            {spotifyTop.length > 0 && (
+            {/* 🎬 YouTube Music */}
+            {ytMusic.length > 0 && (
                 <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mb-10">
                     <div className="flex items-center gap-2 mb-5">
-                        <Sparkles className="w-5 h-5 text-green-400" />
-                        <h2 className="text-2xl font-bold">Spotify Picks</h2>
-                        <span className="text-xs bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">30s previews</span>
+                        <Youtube className="w-5 h-5 text-red-500" />
+                        <h2 className="text-2xl font-bold">YouTube Music</h2>
+                        <span className="text-xs bg-red-500/20 text-red-300 px-2 py-0.5 rounded-full">Full Songs</span>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-                        {spotifyTop.slice(0, 12).map((song, i) => (
-                            <SongCard key={song.id} song={song} songs={spotifyTop} index={i} />
+                        {ytMusic.map((song, i) => (
+                            <SongCard key={song.id} song={song} songs={ytMusic} index={i} />
                         ))}
                     </div>
                 </motion.section>
             )}
 
-            {/* Deezer Charts (shows only if available / not geo-blocked) */}
-            {deezerChart.length > 0 && (
-                <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mb-10">
-                    <div className="flex items-center gap-2 mb-5">
-                        <Sparkles className="w-5 h-5 text-purple-400" />
-                        <h2 className="text-2xl font-bold">Deezer Charts</h2>
-                        <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">30s previews</span>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-                        {deezerChart.slice(0, 12).map((song, i) => (
-                            <SongCard key={song.id} song={song} songs={deezerChart} index={i} />
-                        ))}
-                    </div>
-                </motion.section>
-            )}
-
-            {/* 🔥 Trending */}
+            {/* 🔥 Trending (Jamendo) */}
             <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mb-10">
                 <div className="flex items-center gap-2 mb-5">
                     <TrendingUp className="w-5 h-5 text-primary-500" />
@@ -229,11 +197,12 @@ export default function HomePage() {
                 </motion.section>
             )}
 
-            {/* 🎸 Browse by Genre */}
+            {/* 🎸 Genre Browser */}
             <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mb-10">
                 <div className="flex items-center gap-2 mb-5">
                     <Music2 className="w-5 h-5 text-pink-400" />
                     <h2 className="text-2xl font-bold">Browse by Genre</h2>
+                    <span className="text-xs text-dark-400">YouTube + Jamendo</span>
                 </div>
                 <div className="flex gap-2 mb-5 overflow-x-auto pb-2">
                     {GENRES.map((genre) => (
@@ -268,7 +237,7 @@ export default function HomePage() {
                 </motion.section>
             )}
 
-            {/* 💖 Pop & Romantic */}
+            {/* 💖 Pop */}
             {romantic.length > 0 && (
                 <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="mb-10">
                     <div className="flex items-center gap-2 mb-5">

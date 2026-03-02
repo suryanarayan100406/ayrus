@@ -167,3 +167,58 @@ func DiscoverDeezer(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, tracks)
 }
 
+// DiscoverYouTube searches YouTube Music or gets trending
+func DiscoverYouTube(c *gin.Context) {
+	query := c.Query("q")
+	limitStr := c.DefaultQuery("limit", "20")
+	limit, _ := strconv.Atoi(limitStr)
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+
+	var tracks []services.PipedTrack
+	var err error
+
+	if query != "" {
+		tracks, err = services.SearchYouTubeMusic(query, limit)
+	} else {
+		tracks, err = services.GetYouTubeTrending("IN", limit)
+	}
+
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "YouTube Music unavailable: "+err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, tracks)
+}
+
+// GetYouTubeStream returns audio stream URL for a YouTube video
+func GetYouTubeStream(c *gin.Context) {
+	videoID := c.Param("videoId")
+	if videoID == "" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Video ID required")
+		return
+	}
+
+	info, err := services.GetYouTubeAudioURL(videoID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusServiceUnavailable, "Failed to get audio: "+err.Error())
+		return
+	}
+
+	audioURL := services.GetBestAudioURL(info)
+	if audioURL == "" {
+		utils.ErrorResponse(c, http.StatusNotFound, "No audio stream available")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, gin.H{
+		"audioUrl":  audioURL,
+		"title":     info.Title,
+		"uploader":  info.Uploader,
+		"thumbnail": info.Thumbnail,
+		"duration":  info.Duration,
+	})
+}
+

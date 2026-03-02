@@ -118,6 +118,12 @@ export const discoverSpotify = (params?: { q?: string; limit?: number }) => {
     const qs = new URLSearchParams(params as Record<string, string>).toString();
     return apiFetch(`/discover/spotify?${qs}`);
 };
+export const discoverYouTube = (params?: { q?: string; limit?: number }) => {
+    const qs = new URLSearchParams(params as Record<string, string>).toString();
+    return apiFetch(`/discover/youtube?${qs}`);
+};
+export const getYouTubeStream = (videoId: string) =>
+    apiFetch(`/discover/youtube/stream/${videoId}`);
 
 // Admin
 export const adminGetDashboard = () => apiFetch('/admin/dashboard');

@@ -56,33 +56,51 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     repeat: 'off',
     audioRef: null,
 
-    playSong: (song) => {
+    playSong: async (song) => {
         const { audioRef } = get();
         set({
             currentSong: song,
             isPlaying: true,
             progress: 0,
         });
+
+        let audioURL = song.audioURL;
+
+        // YouTube tracks have lazy-loaded audio URLs
+        if (audioURL.startsWith('youtube:')) {
+            const videoId = audioURL.replace('youtube:', '');
+            try {
+                const { getYouTubeStream } = await import('@/lib/api');
+                const res = await getYouTubeStream(videoId);
+                if (res.data?.audioUrl) {
+                    audioURL = res.data.audioUrl;
+                    // Update the song object so it doesn't need to fetch again
+                    song.audioURL = audioURL;
+                    set({ currentSong: { ...song, audioURL } });
+                } else {
+                    console.error('No audio stream for YouTube video');
+                    return;
+                }
+            } catch (e) {
+                console.error('Failed to get YouTube audio:', e);
+                return;
+            }
+        }
+
         if (audioRef) {
-            audioRef.src = song.audioURL;
+            audioRef.src = audioURL;
             audioRef.play().catch(() => { });
         }
     },
 
-    playQueue: (songs, startIndex = 0) => {
+    playQueue: async (songs, startIndex = 0) => {
         const song = songs[startIndex];
-        const { audioRef } = get();
         set({
             queue: songs,
             queueIndex: startIndex,
-            currentSong: song,
-            isPlaying: true,
-            progress: 0,
         });
-        if (audioRef) {
-            audioRef.src = song.audioURL;
-            audioRef.play().catch(() => { });
-        }
+        // Delegate to playSong which handles YouTube lazy loading
+        get().playSong(song);
     },
 
     addToQueue: (song) => {
@@ -116,7 +134,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     },
 
     nextSong: () => {
-        const { queue, queueIndex, shuffle, repeat, audioRef } = get();
+        const { queue, queueIndex, shuffle, repeat } = get();
         if (queue.length === 0) return;
 
         let nextIndex: number;
@@ -136,22 +154,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         }
 
         const nextSong = queue[nextIndex];
-        set({
-            currentSong: nextSong,
-            queueIndex: nextIndex,
-            isPlaying: true,
-            progress: 0,
-        });
-        if (audioRef) {
-            audioRef.src = nextSong.audioURL;
-            audioRef.play().catch(() => { });
-        }
+        set({ queueIndex: nextIndex });
+        // Delegate to playSong which handles YouTube lazy loading
+        get().playSong(nextSong);
     },
 
     prevSong: () => {
         const { queue, queueIndex, progress, audioRef } = get();
         if (progress > 3) {
-            // Restart current song if more than 3 seconds in
             if (audioRef) {
                 audioRef.currentTime = 0;
             }
@@ -163,16 +173,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         if (prevIndex < 0) return;
 
         const prevSong = queue[prevIndex];
-        set({
-            currentSong: prevSong,
-            queueIndex: prevIndex,
-            isPlaying: true,
-            progress: 0,
-        });
-        if (audioRef) {
-            audioRef.src = prevSong.audioURL;
-            audioRef.play().catch(() => { });
-        }
+        set({ queueIndex: prevIndex });
+        get().playSong(prevSong);
     },
 
     setVolume: (volume) => {

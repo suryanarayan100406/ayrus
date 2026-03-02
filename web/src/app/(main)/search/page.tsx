@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Search as SearchIcon, X, Globe, Music, Radio } from 'lucide-react';
+import { Search as SearchIcon, X, Music, Youtube } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { discoverJamendo, discoverDeezer, discoverSpotify } from '@/lib/api';
+import { discoverJamendo, discoverYouTube } from '@/lib/api';
 import { usePlayerStore, Song } from '@/store/playerStore';
 import SongCard from '@/components/cards/SongCard';
 import { CardGridSkeleton } from '@/components/skeletons/Skeletons';
@@ -14,15 +14,9 @@ interface JamendoTrack {
     artist_name: string; album_name: string; album_image: string;
     audio: string; image: string;
 }
-interface DeezerTrack {
-    id: number; title: string; duration: number; preview: string;
-    artist: { id: number; name: string };
-    album: { id: number; title: string; cover_medium: string; cover_xl: string };
-}
-interface SpotifyTrackData {
-    id: string; name: string; duration_ms: number; preview_url: string;
-    album: { name: string; images: { url: string }[] };
-    artists: { id: string; name: string }[];
+interface PipedTrack {
+    videoId: string; title: string; artist: string; thumbnail: string;
+    duration: number; views: number;
 }
 
 function mapJamendo(t: JamendoTrack): Song {
@@ -33,23 +27,15 @@ function mapJamendo(t: JamendoTrack): Song {
         source: 'jamendo', duration: t.duration, playCount: 0, genre: '',
     };
 }
-function mapDeezer(t: DeezerTrack): Song {
+function mapYouTube(t: PipedTrack): Song {
+    const artist = t.artist?.replace(/ - Topic$/, '') || 'Unknown Artist';
     return {
-        id: `dz-${t.id}`, title: t.title, artistId: String(t.artist.id),
-        artistName: t.artist.name, albumName: t.album.title,
-        coverURL: t.album.cover_xl || t.album.cover_medium,
-        audioURL: t.preview, source: 'deezer',
-        duration: t.duration, playCount: 0, genre: '',
-    };
-}
-function mapSpotify(t: SpotifyTrackData): Song | null {
-    if (!t.preview_url) return null;
-    return {
-        id: `sp-${t.id}`, title: t.name,
-        artistId: t.artists[0]?.id || '', artistName: t.artists.map(a => a.name).join(', '),
-        albumName: t.album.name, coverURL: t.album.images[0]?.url || '',
-        audioURL: t.preview_url, source: 'spotify',
-        duration: Math.round(t.duration_ms / 1000), playCount: 0, genre: '',
+        id: `yt-${t.videoId}`, title: t.title,
+        artistId: '', artistName: artist,
+        albumName: '', coverURL: t.thumbnail,
+        audioURL: `youtube:${t.videoId}`,
+        source: 'youtube', duration: t.duration,
+        playCount: 0, genre: '',
     };
 }
 
@@ -65,41 +51,36 @@ const genreColors = [
 
 export default function SearchPage() {
     const [query, setQuery] = useState('');
-    const [deezerResults, setDeezerResults] = useState<Song[]>([]);
+    const [ytResults, setYtResults] = useState<Song[]>([]);
     const [jamendoResults, setJamendoResults] = useState<Song[]>([]);
-    const [spotifyResults, setSpotifyResults] = useState<Song[]>([]);
     const [loading, setLoading] = useState(false);
     const [browseGenre, setBrowseGenre] = useState('');
     const [browseResults, setBrowseResults] = useState<Song[]>([]);
     const [browsing, setBrowsing] = useState(false);
 
-    // Search ALL sources in parallel
+    // Search YouTube + Jamendo in parallel
     const handleSearch = useCallback(async (q: string) => {
         if (!q.trim()) {
-            setDeezerResults([]); setJamendoResults([]); setSpotifyResults([]);
+            setYtResults([]); setJamendoResults([]);
             return;
         }
         setLoading(true);
         try {
-            const [dz, jam, sp] = await Promise.allSettled([
-                discoverDeezer({ q, limit: 15 }),
+            const [yt, jam] = await Promise.allSettled([
+                discoverYouTube({ q, limit: 15 }),
                 discoverJamendo({ q, limit: 15 }),
-                discoverSpotify({ q, limit: 15 }),
             ]);
 
-            if (dz.status === 'fulfilled' && dz.value.data) {
-                const tracks = Array.isArray(dz.value.data) ? dz.value.data : [];
-                setDeezerResults(tracks.map(mapDeezer));
+            if (yt.status === 'fulfilled' && Array.isArray(yt.value?.data)) {
+                setYtResults(yt.value.data.map(mapYouTube));
+            } else {
+                setYtResults([]);
             }
-            if (jam.status === 'fulfilled' && jam.value.data) {
+            if (jam.status === 'fulfilled' && jam.value?.data) {
                 const tracks = Array.isArray(jam.value.data) ? jam.value.data : [];
                 setJamendoResults(tracks.map(mapJamendo));
-            }
-            if (sp.status === 'fulfilled' && sp.value.data) {
-                // Spotify returns { tracks: { items: [] } } format
-                const spData = sp.value.data;
-                const items = spData?.tracks?.items || [];
-                setSpotifyResults(items.map(mapSpotify).filter(Boolean) as Song[]);
+            } else {
+                setJamendoResults([]);
             }
         } catch { }
         setLoading(false);
@@ -116,24 +97,21 @@ export default function SearchPage() {
         setBrowseGenre(genre);
         setBrowsing(true);
         try {
-            const [dz, jam] = await Promise.allSettled([
-                discoverDeezer({ q: genre, limit: 15 }),
-                discoverJamendo({ genre: genre.toLowerCase(), limit: 15 }),
+            const [yt, jam] = await Promise.allSettled([
+                discoverYouTube({ q: `${genre} songs music`, limit: 12 }),
+                discoverJamendo({ genre: genre.toLowerCase(), limit: 10 }),
             ]);
             const results: Song[] = [];
-            if (dz.status === 'fulfilled' && Array.isArray(dz.value.data)) {
-                results.push(...dz.value.data.map(mapDeezer));
-            }
-            if (jam.status === 'fulfilled' && Array.isArray(jam.value.data)) {
+            if (yt.status === 'fulfilled' && Array.isArray(yt.value?.data))
+                results.push(...yt.value.data.map(mapYouTube));
+            if (jam.status === 'fulfilled' && Array.isArray(jam.value?.data))
                 results.push(...jam.value.data.map(mapJamendo));
-            }
             setBrowseResults(results);
         } catch { setBrowseResults([]); }
         setBrowsing(false);
     };
 
-    const allResults = [...deezerResults, ...spotifyResults, ...jamendoResults];
-    const hasResults = allResults.length > 0;
+    const hasResults = ytResults.length > 0 || jamendoResults.length > 0;
 
     return (
         <div className="p-6 lg:p-8">
@@ -145,7 +123,7 @@ export default function SearchPage() {
                         type="text"
                         value={query}
                         onChange={(e) => { setQuery(e.target.value); setBrowseGenre(''); }}
-                        placeholder="Search millions of songs across Deezer, Spotify & Jamendo..."
+                        placeholder="Search any song — Ed Sheeran, BTS, Arijit Singh..."
                         className="w-full bg-dark-600 rounded-full py-3 pl-12 pr-10 text-white placeholder-dark-300
                        focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
                     />
@@ -161,38 +139,22 @@ export default function SearchPage() {
             {query ? (
                 <div>
                     <h2 className="text-2xl font-bold mb-5">
-                        {loading ? 'Searching all sources...' : `Results for "${query}"`}
+                        {loading ? 'Searching YouTube & Jamendo...' : `Results for "${query}"`}
                     </h2>
 
                     {loading ? <CardGridSkeleton /> : hasResults ? (
                         <>
-                            {/* Deezer results */}
-                            {deezerResults.length > 0 && (
+                            {/* YouTube results */}
+                            {ytResults.length > 0 && (
                                 <section className="mb-8">
                                     <div className="flex items-center gap-2 mb-4">
-                                        <Globe className="w-4 h-4 text-purple-400" />
-                                        <h3 className="text-lg font-semibold text-dark-300">Deezer</h3>
-                                        <span className="text-xs text-dark-400">30s previews</span>
+                                        <Youtube className="w-4 h-4 text-red-500" />
+                                        <h3 className="text-lg font-semibold text-dark-300">YouTube Music</h3>
+                                        <span className="text-xs text-dark-400">Full songs</span>
                                     </div>
                                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-                                        {deezerResults.map((song, i) => (
-                                            <SongCard key={song.id} song={song} songs={deezerResults} index={i} />
-                                        ))}
-                                    </div>
-                                </section>
-                            )}
-
-                            {/* Spotify results */}
-                            {spotifyResults.length > 0 && (
-                                <section className="mb-8">
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <Radio className="w-4 h-4 text-green-400" />
-                                        <h3 className="text-lg font-semibold text-dark-300">Spotify</h3>
-                                        <span className="text-xs text-dark-400">30s previews</span>
-                                    </div>
-                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-                                        {spotifyResults.map((song, i) => (
-                                            <SongCard key={song.id} song={song} songs={spotifyResults} index={i} />
+                                        {ytResults.map((song, i) => (
+                                            <SongCard key={song.id} song={song} songs={ytResults} index={i} />
                                         ))}
                                     </div>
                                 </section>
@@ -204,7 +166,7 @@ export default function SearchPage() {
                                     <div className="flex items-center gap-2 mb-4">
                                         <Music className="w-4 h-4 text-primary-400" />
                                         <h3 className="text-lg font-semibold text-dark-300">Jamendo</h3>
-                                        <span className="text-xs text-dark-400">Full tracks</span>
+                                        <span className="text-xs text-dark-400">Free licensed tracks</span>
                                     </div>
                                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                                         {jamendoResults.map((song, i) => (

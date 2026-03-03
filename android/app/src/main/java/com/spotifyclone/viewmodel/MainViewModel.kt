@@ -28,6 +28,9 @@ class MainViewModel @Inject constructor(
     private val _featuredSongs = MutableStateFlow<UiState>(UiState.Loading)
     val featuredSongs: StateFlow<UiState> = _featuredSongs
 
+    private val _feedSongs = MutableStateFlow<UiState>(UiState.Loading)
+    val feedSongs: StateFlow<UiState> = _feedSongs
+
     init {
         // You would typically wait for Firebase Auth to confirm login before calling these
         // loadInitialData()
@@ -36,6 +39,7 @@ class MainViewModel @Inject constructor(
     fun loadInitialData() {
         fetchCurrentUser()
         fetchFeaturedSongs()
+        fetchFeedSongs()
     }
 
     private fun fetchCurrentUser() {
@@ -56,6 +60,18 @@ class MainViewModel @Inject constructor(
                 _featuredSongs.value = UiState.Success(songs)
             } catch (e: Exception) {
                 _featuredSongs.value = UiState.Error(e.message ?: "Failed to fetch featured")
+            }
+        }
+    }
+
+    private fun fetchFeedSongs() {
+        viewModelScope.launch {
+            try {
+                // Fetch up to 15 standard songs for testing
+                val songs = apiService.getSongs(limit = 15)
+                _feedSongs.value = UiState.Success(songs)
+            } catch (e: Exception) {
+                _feedSongs.value = UiState.Error(e.message ?: "Failed to fetch feed")
             }
         }
     }

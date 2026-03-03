@@ -20,12 +20,21 @@ var (
 func InitFirebase() {
 	ctx := context.Background()
 
-	credPath := os.Getenv("FIREBASE_CREDENTIALS")
-	if credPath == "" {
-		credPath = "serviceAccountKey.json"
+	credEnv := os.Getenv("FIREBASE_CREDENTIALS")
+	
+	var opt option.ClientOption
+	if credEnv != "" {
+		// If the environment variable contains curly braces, it's raw JSON
+		if len(credEnv) > 0 && credEnv[0] == '{' {
+			opt = option.WithCredentialsJSON([]byte(credEnv))
+		} else {
+			// Otherwise assume it's a file path
+			opt = option.WithCredentialsFile(credEnv)
+		}
+	} else {
+		// Fallback for local development
+		opt = option.WithCredentialsFile("serviceAccountKey.json")
 	}
-
-	opt := option.WithCredentialsFile(credPath)
 
 	app, err := firebase.NewApp(ctx, nil, opt)
 	if err != nil {

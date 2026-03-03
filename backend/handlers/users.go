@@ -5,6 +5,7 @@ import (
 
 	"spotify-clone/services"
 	"spotify-clone/utils"
+	"spotify-clone/models"
 
 	"cloud.google.com/go/firestore"
 	"github.com/gin-gonic/gin"

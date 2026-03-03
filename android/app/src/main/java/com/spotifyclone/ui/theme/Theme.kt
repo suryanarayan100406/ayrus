@@ -1,41 +1,22 @@
 package com.spotifyclone.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-val SpotifyGreen = Color(0xFF1DB954)
-val SpotifyGreenDark = Color(0xFF1AA34A)
-val SpotifyBlack = Color(0xFF121212)
-val SpotifyDarkGray = Color(0xFF181818)
-val SpotifyMediumGray = Color(0xFF282828)
-val SpotifyLightGray = Color(0xFFB3B3B3)
-val SpotifyWhite = Color(0xFFFFFFFF)
+val DarkCyan = Color(0xFF00CED1)
+val DefaultDarkBackground = Color(0xFF121212)
+val DefaultSurface = Color(0xFF1E1E1E)
 
 private val DarkColorScheme = darkColorScheme(
-    primary = SpotifyGreen,
+    primary = DarkCyan,
+    background = DefaultDarkBackground,
+    surface = DefaultSurface,
     onPrimary = Color.Black,
-    secondary = SpotifyGreenDark,
-    background = SpotifyBlack,
-    surface = SpotifyDarkGray,
-    surfaceVariant = SpotifyMediumGray,
-    onBackground = SpotifyWhite,
-    onSurface = SpotifyWhite,
-    onSurfaceVariant = SpotifyLightGray,
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = SpotifyGreen,
-    onPrimary = Color.White,
-    secondary = SpotifyGreenDark,
-    background = Color(0xFFF5F5F5),
-    surface = Color.White,
-    surfaceVariant = Color(0xFFEEEEEE),
-    onBackground = Color.Black,
-    onSurface = Color.Black,
-    onSurfaceVariant = Color(0xFF666666),
+    onBackground = Color.White,
+    onSurface = Color.White
 )
 
 @Composable
@@ -43,11 +24,12 @@ fun SpotifyCloneTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    // Forcing Dark Theme for this app based on design specs
+    val colorScheme = DarkColorScheme
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography(),
+        typography = Typography,
         content = content
     )
 }

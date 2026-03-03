@@ -1,202 +1,60 @@
 package com.spotifyclone.ui.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import com.spotifyclone.ui.theme.SpotifyGreen
-
-data class SongItem(
-    val id: String = "",
-    val title: String = "",
-    val artistName: String = "",
-    val coverURL: String = "",
-    val audioURL: String = "",
-    val genre: String = "",
-    val playCount: Int = 0
-)
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.spotifyclone.data.models.Song
+import com.spotifyclone.viewmodel.MainViewModel
 
 @Composable
-fun HomeScreen() {
-    val greeting = remember {
-        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-        when {
-            hour < 12 -> "Good morning"
-            hour < 18 -> "Good afternoon"
-            else -> "Good evening"
-        }
-    }
+fun HomeScreen(viewModel: MainViewModel = hiltViewModel()) {
+    val songsState = viewModel.featuredSongs.collectAsState()
 
-    LazyColumn(
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        SpotifyGreen.copy(alpha = 0.15f),
-                        MaterialTheme.colorScheme.background
-                    )
-                )
-            ),
-        contentPadding = PaddingValues(bottom = 80.dp)
+            .padding(16.dp)
     ) {
-        item {
-            Text(
-                text = greeting,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 16.dp, top = 48.dp, bottom = 24.dp)
-            )
-        }
-
-        // Featured Section
-        item {
-            Text(
-                text = "Trending Now",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
-            )
-        }
-
-        item {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(6) { i ->
-                    SongCardComposable(
-                        title = "Track ${i + 1}",
-                        artist = "Artist",
-                        imageUrl = ""
-                    )
-                }
-            }
-        }
-
-        item { Spacer(Modifier.height(24.dp)) }
-
-        // Made For You
-        item {
-            Text(
-                text = "Made For You",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
-            )
-        }
-
-        item {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(6) { i ->
-                    SongCardComposable(
-                        title = "Recommended ${i + 1}",
-                        artist = "Various Artists",
-                        imageUrl = ""
-                    )
-                }
-            }
-        }
-
-        item { Spacer(Modifier.height(24.dp)) }
-
-        // Recently Played
-        item {
-            Text(
-                text = "Recently Played",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
-            )
-        }
-
-        item {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(6) { i ->
-                    SongCardComposable(
-                        title = "Recent ${i + 1}",
-                        artist = "Artist",
-                        imageUrl = ""
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun SongCardComposable(
-    title: String,
-    artist: String,
-    imageUrl: String,
-    onClick: () -> Unit = {}
-) {
-    Card(
-        modifier = Modifier
-            .width(150.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        Text(
+            text = "Good Evening",
+            style = MaterialTheme.typography.titleLarge.copy(fontSize = 32.sp, fontWeight = FontWeight.Black),
+            modifier = Modifier.padding(bottom = 24.dp)
         )
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-            ) {
-                if (imageUrl.isNotBlank()) {
-                    AsyncImage(
-                        model = imageUrl,
-                        contentDescription = title,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
+
+        Text(
+            text = "Featured Curation",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        // Ideally a LazyRow or LazyVerticalGrid for songs will go here once the UI is expanded
+        // For scaffold phase we show a simple list or loading state
+        
+        when (val state = songsState.value) {
+            is MainViewModel.UiState.Loading -> {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+            }
+            is MainViewModel.UiState.Success<*> -> {
+                val songs = state.data as List<Song>
+                if (songs.isEmpty()) {
+                    Text("No featured songs currently available.", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                 } else {
-                    Text(
-                        "🎵",
-                        fontSize = 32.sp,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    songs.take(5).forEach { song ->
+                        Text("• ${song.title} by ${song.artistName}", style = MaterialTheme.typography.bodyLarge)
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
             }
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = title,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp,
-                maxLines = 1,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = artist,
-                fontSize = 12.sp,
-                maxLines = 1,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            is MainViewModel.UiState.Error -> {
+                Text("Failed to load: ${state.message}", color = MaterialTheme.colorScheme.error)
+            }
         }
     }
 }

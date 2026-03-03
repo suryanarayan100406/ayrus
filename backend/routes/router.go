@@ -30,6 +30,7 @@ func SetupRouter() *gin.Engine {
 
 		// Public Routes
 		api.GET("/discover/youtube/stream/:videoId", handlers.GetYouTubeStream)
+		api.GET("/discover/youtube/proxy/:videoId", handlers.ProxyYouTubeStream)
 
 		// Protected routes (auth required)
 		protected := api.Group("")

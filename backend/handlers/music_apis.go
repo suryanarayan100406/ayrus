@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -231,13 +232,68 @@ func GetYouTubeStream(c *gin.Context) {
 		return
 	}
 
+	protocol := "http"
+	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+		protocol = "https"
+	}
+	proxyURL := fmt.Sprintf("%s://%s/api/discover/youtube/proxy/%s", protocol, c.Request.Host, videoID)
+
 	utils.SuccessResponse(c, http.StatusOK, gin.H{
-		"audioUrl":  audioURL,
+		"audioUrl":  proxyURL,
 		"title":     info.Title,
 		"uploader":  info.Uploader,
 		"thumbnail": info.Thumbnail,
 		"duration":  info.Duration,
 	})
+}
+
+// ProxyYouTubeStream streams audio through the backend to bypass IP locks
+func ProxyYouTubeStream(c *gin.Context) {
+	videoID := c.Param("videoId")
+	if videoID == "" {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	info, err := services.GetYouTubeAudioURL(videoID)
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	audioURL := services.GetBestAudioURL(info)
+	if audioURL == "" {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	req, err := http.NewRequestWithContext(c.Request.Context(), "GET", audioURL, nil)
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	if rangeHeader := c.GetHeader("Range"); rangeHeader != "" {
+		req.Header.Set("Range", rangeHeader)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	for k, v := range resp.Header {
+		c.Header(k, v[0])
+	}
+	c.Status(resp.StatusCode)
+
+	_, err = io.Copy(c.Writer, resp.Body)
+	if err != nil {
+		return
+	}
 }
 
 // DiscoverSimilar gets similar tracks based on artist, title, or genre

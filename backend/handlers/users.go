@@ -195,3 +195,37 @@ func GetLikedSongs(c *gin.Context) {
 
 	utils.SuccessResponse(c, http.StatusOK, songs)
 }
+
+// GetPublicProfile returns a user's public profile and their public playlists
+func GetPublicProfile(c *gin.Context) {
+	targetUID := c.Param("id")
+
+	user, err := services.GetUser(c.Request.Context(), targetUID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusNotFound, "User not found")
+		return
+	}
+
+	// Fetch public playlists for this user
+	playlists, err := services.GetUserPlaylists(c.Request.Context(), targetUID)
+	var publicPlaylists []models.Playlist
+	if err == nil {
+		for _, p := range playlists {
+			if p.IsPublic {
+				publicPlaylists = append(publicPlaylists, p)
+			}
+		}
+	}
+	if publicPlaylists == nil {
+		publicPlaylists = []models.Playlist{}
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, gin.H{
+		"uid":            user.UID,
+		"displayName":    user.DisplayName,
+		"photoURL":       user.PhotoURL,
+		"role":           user.Role,
+		"followersCount": len(user.Following),
+		"playlists":      publicPlaylists,
+	})
+}

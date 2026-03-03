@@ -16,6 +16,7 @@ type Song struct {
 	PlayCount  int       `json:"playCount" firestore:"playCount"`
 	Genre      string    `json:"genre" firestore:"genre"`
 	Status     string    `json:"status" firestore:"status"` // pending, approved, rejected
+	Featured   bool      `json:"featured" firestore:"featured"`
 	Tags       []string  `json:"tags" firestore:"tags"`
 	CreatedAt  time.Time `json:"createdAt" firestore:"createdAt"`
 }

@@ -30,11 +30,18 @@ func GetPlaylists(c *gin.Context) {
 
 // GetPlaylist returns a single playlist by ID
 func GetPlaylist(c *gin.Context) {
+	uid := c.GetString("uid")
 	id := c.Param("id")
 
 	playlist, err := services.GetPlaylist(c.Request.Context(), id)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusNotFound, "Playlist not found")
+		return
+	}
+
+	// Enforce privacy: user must be owner or playlist must be public
+	if !playlist.IsPublic && playlist.UserID != uid {
+		utils.ErrorResponse(c, http.StatusForbidden, "This playlist is private")
 		return
 	}
 

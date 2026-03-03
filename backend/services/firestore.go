@@ -62,6 +62,11 @@ func GetSong(ctx context.Context, id string) (*models.Song, error) {
 	return &song, nil
 }
 
+func CreateSongWithID(ctx context.Context, id string, song models.Song) error {
+	_, err := config.FirestoreClient.Collection("songs").Doc(id).Set(ctx, song)
+	return err
+}
+
 func GetSongs(ctx context.Context, limit int, genre, status string) ([]models.Song, error) {
 	col := config.FirestoreClient.Collection("songs")
 	var iter *firestore.DocumentIterator
@@ -75,6 +80,33 @@ func GetSongs(ctx context.Context, limit int, genre, status string) ([]models.So
 	} else {
 		iter = col.Limit(limit).Documents(ctx)
 	}
+	defer iter.Stop()
+
+	var songs []models.Song
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		var song models.Song
+		if err := doc.DataTo(&song); err != nil {
+			continue
+		}
+		song.ID = doc.Ref.ID
+		songs = append(songs, song)
+	}
+	return songs, nil
+}
+
+func GetFeaturedSongs(ctx context.Context, limit int) ([]models.Song, error) {
+	iter := config.FirestoreClient.Collection("songs").
+		Where("featured", "==", true).
+		Where("status", "==", "approved").
+		Limit(limit).
+		Documents(ctx)
 	defer iter.Stop()
 
 	var songs []models.Song
@@ -141,7 +173,11 @@ func IncrementPlayCount(ctx context.Context, songID string) error {
 	_, err := config.FirestoreClient.Collection("songs").Doc(songID).Update(ctx, []firestore.Update{
 		{Path: "playCount", Value: firestore.Increment(1)},
 	})
-	return err
+	// Ignore error if the document doesn't exist (e.g. external YouTube/Jamendo song)
+	if err != nil {
+		return nil
+	}
+	return nil
 }
 
 // ---- Playlists ----

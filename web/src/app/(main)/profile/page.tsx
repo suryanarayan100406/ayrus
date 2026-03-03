@@ -57,6 +57,18 @@ export default function ProfilePage() {
                         {userProfile?.role || 'user'}
                     </span>
                 </div>
+
+                {userProfile?.uid && (
+                    <button
+                        onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/user/${userProfile.uid}`);
+                            alert('Profile link copied to clipboard!');
+                        }}
+                        className="ml-auto flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 hover:bg-white/10 transition-colors text-sm"
+                    >
+                        Share Profile
+                    </button>
+                )}
             </div>
 
             {/* Edit Name */}

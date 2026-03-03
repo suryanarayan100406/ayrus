@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import Sidebar from '@/components/layout/Sidebar';
 import MusicPlayer from '@/components/player/MusicPlayer';
+import NowPlayingOverlay from '@/components/player/NowPlayingOverlay';
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
     const { user, loading, initAuth } = useAuthStore();
@@ -43,6 +44,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 </main>
             </div>
             <MusicPlayer />
+            <NowPlayingOverlay />
         </div>
     );
 }

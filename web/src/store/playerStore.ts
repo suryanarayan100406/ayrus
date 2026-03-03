@@ -97,6 +97,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             audioRef.play().then(() => {
                 set({ isLoading: false });
 
+                // --- Record Play History & Cache Metadata ---
+                import('@/lib/api').then(api => {
+                    api.recordPlay(song).catch(e => console.error("Failed to record play:", e));
+                });
+
                 // --- Silent Prefetch for Next Song in Queue ---
                 const { queue, queueIndex, shuffle } = get();
                 if (queue.length > 0) {

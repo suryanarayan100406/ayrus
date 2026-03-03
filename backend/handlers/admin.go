@@ -2,9 +2,13 @@ package handlers
 
 import (
 	"net/http"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	"spotify-clone/config"
+	"spotify-clone/models"
 	"spotify-clone/services"
 	"spotify-clone/utils"
 
@@ -179,4 +183,107 @@ func AdminUpdateUserRole(c *gin.Context) {
 	}
 
 	utils.SuccessMessage(c, "User role updated to "+req.Role)
+}
+
+// AdminUploadSong allows an admin to upload a song without artist restrictions
+func AdminUploadSong(c *gin.Context) {
+	// Parse multipart form
+	if err := c.Request.ParseMultipartForm(20 << 20); err != nil { // 20MB max
+		utils.ErrorResponse(c, http.StatusBadRequest, "File too large")
+		return
+	}
+
+	// Get audio file
+	audioFile, audioHeader, err := c.Request.FormFile("audio")
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Audio file required")
+		return
+	}
+	defer audioFile.Close()
+
+	if valid, msg := utils.ValidateAudioFile(audioHeader); !valid {
+		utils.ErrorResponse(c, http.StatusBadRequest, msg)
+		return
+	}
+
+	title := utils.SanitizeString(c.PostForm("title"))
+	artistName := utils.SanitizeString(c.PostForm("artistName"))
+	if title == "" || artistName == "" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Song title and artist name are required")
+		return
+	}
+	genre := utils.SanitizeString(c.PostForm("genre"))
+
+	ext := strings.ToLower(filepath.Ext(audioHeader.Filename))
+	contentType := "audio/mpeg"
+	if ext == ".wav" {
+		contentType = "audio/wav"
+	}
+
+	audioURL, err := services.UploadFile(c.Request.Context(), audioFile, "songs", audioHeader.Filename, contentType)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to upload audio file")
+		return
+	}
+
+	coverURL := ""
+	coverFile, coverHeader, err := c.Request.FormFile("cover")
+	if err == nil {
+		defer coverFile.Close()
+		if valid, _ := utils.ValidateImageFile(coverHeader); valid {
+			url, err := services.UploadFile(c.Request.Context(), coverFile, "covers", coverHeader.Filename, "image/jpeg")
+			if err == nil {
+				coverURL = url
+			}
+		}
+	}
+
+	song := models.Song{
+		Title:      title,
+		ArtistID:   "admin", // Indicates an admin upload rather than a specific artist
+		ArtistName: artistName,
+		CoverURL:   coverURL,
+		AudioURL:   audioURL,
+		Source:     "upload",
+		Duration:   0,
+		PlayCount:  0,
+		Genre:      genre,
+		Status:     "approved", // Admins auto-approve
+		CreatedAt:  time.Now(),
+	}
+
+	id, err := services.CreateSong(c.Request.Context(), song)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to save song entry")
+		return
+	}
+
+	song.ID = id
+	utils.SuccessResponse(c, http.StatusCreated, song)
+}
+
+// AdminToggleFeatured toggles the featured status of a catalog song
+func AdminToggleFeatured(c *gin.Context) {
+	id := c.Param("id")
+
+	var req struct {
+		Featured bool `json:"featured"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "Featured boolean is required")
+		return
+	}
+
+	if err := services.UpdateSong(c.Request.Context(), id, map[string]interface{}{
+		"featured": req.Featured,
+	}); err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to update featured status")
+		return
+	}
+
+	statusStr := "unfeatured"
+	if req.Featured {
+		statusStr = "featured"
+	}
+	utils.SuccessMessage(c, "Song successfully "+statusStr)
 }

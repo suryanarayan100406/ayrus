@@ -2,16 +2,17 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Search, Library, PlusCircle, Heart, Music, Mic2, Shield, LogOut, Sun, Moon, Sparkles } from 'lucide-react';
+import { Home, Search, Library, PlusSquare, PlusCircle, Heart, LogOut, Loader2, Sparkles, Clock, Sun, Moon, Music, Mic2, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
 
-const mainLinks = [
-    { href: '/home', label: 'Home', icon: Home },
-    { href: '/search', label: 'Search', icon: Search },
-    { href: '/feed', label: 'Feed', icon: Sparkles },
-    { href: '/library', label: 'Your Library', icon: Library },
+const navItems = [
+    { icon: Home, label: 'Home', href: '/home' },
+    { icon: Search, label: 'Search', href: '/search' },
+    { icon: Sparkles, label: 'Feed', href: '/feed' },
+    { icon: Clock, label: 'History', href: '/history' },
+    { icon: Library, label: 'Your Library', href: '/library' },
 ];
 
 export default function Sidebar() {
@@ -38,7 +39,7 @@ export default function Sidebar() {
 
             {/* Main Navigation */}
             <nav className="px-3 space-y-1">
-                {mainLinks.map((link) => (
+                {navItems.map((link) => (
                     <Link
                         key={link.href}
                         href={link.href}

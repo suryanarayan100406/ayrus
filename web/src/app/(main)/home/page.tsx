@@ -5,7 +5,11 @@ import { motion } from 'framer-motion';
 import { Play, TrendingUp, Music2, Sparkles, Heart, Headphones, Zap, Youtube } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { usePlayerStore, Song } from '@/store/playerStore';
-import { discoverJamendo, discoverYouTube } from '@/lib/api';
+import {
+    discoverJamendo,
+    discoverYouTube,
+    discoverFeatured
+} from '@/lib/api';
 import { getGreeting } from '@/lib/utils';
 import SongCard from '@/components/cards/SongCard';
 import { CardGridSkeleton } from '@/components/skeletons/Skeletons';
@@ -54,6 +58,7 @@ export default function HomePage() {
     const [chill, setChill] = useState<Song[]>([]);
     const [romantic, setRomantic] = useState<Song[]>([]);
     const [genreTracks, setGenreTracks] = useState<Song[]>([]);
+    const [featuredTracks, setFeaturedTracks] = useState<Song[]>([]);
     const [selectedGenre, setSelectedGenre] = useState('pop');
     const [loading, setLoading] = useState(true);
     const [genreLoading, setGenreLoading] = useState(false);
@@ -65,6 +70,7 @@ export default function HomePage() {
             const randomYtQuery = ytQueries[Math.floor(Math.random() * ytQueries.length)];
 
             const results = await Promise.allSettled([
+                discoverFeatured({ limit: 10 }),
                 discoverJamendo({ limit: 30 }), // Fetch more to shuffle
                 discoverYouTube({ q: randomYtQuery, limit: 15 }),
                 discoverJamendo({ genre: 'electronic', limit: 20 }),
@@ -72,24 +78,26 @@ export default function HomePage() {
                 discoverJamendo({ genre: 'pop', limit: 20 }),
             ]);
 
-            const [trendingR, ytR, energeticR, chillR, romanticR] = results;
+            const [featuredR, trendingR, ytR, energeticR, chillR, romanticR] = results;
 
             const shuffle = <T,>(arr: T[]): T[] => {
                 return [...arr].sort(() => Math.random() - 0.5).slice(0, 10); // Return 10 random items
             };
 
+            if (featuredR.status === 'fulfilled' && featuredR.value?.data)
+                setFeaturedTracks(featuredR.value.data);
             if (trendingR.status === 'fulfilled' && trendingR.value?.data)
-                setTrending(shuffle(trendingR.value.data).map(mapJamendo));
+                setTrending(shuffle(trendingR.value.data as JamendoTrack[]).map(mapJamendo));
             if (ytR.status === 'fulfilled' && ytR.value?.data) {
                 const data = Array.isArray(ytR.value.data) ? ytR.value.data : [];
                 setYtMusic(data.map(mapYouTube));
             }
             if (energeticR.status === 'fulfilled' && energeticR.value?.data)
-                setEnergetic(shuffle(energeticR.value.data).map(mapJamendo));
+                setEnergetic(shuffle(energeticR.value.data as JamendoTrack[]).map(mapJamendo));
             if (chillR.status === 'fulfilled' && chillR.value?.data)
-                setChill(shuffle(chillR.value.data).map(mapJamendo));
+                setChill(shuffle(chillR.value.data as JamendoTrack[]).map(mapJamendo));
             if (romanticR.status === 'fulfilled' && romanticR.value?.data)
-                setRomantic(shuffle(romanticR.value.data).map(mapJamendo));
+                setRomantic(shuffle(romanticR.value.data as JamendoTrack[]).map(mapJamendo));
 
             setLoading(false);
         }
@@ -134,6 +142,44 @@ export default function HomePage() {
                     Millions of songs from YouTube & Jamendo — all free
                 </p>
             </motion.div>
+
+            {/* Featured Hero Carousel */}
+            {featuredTracks.length > 0 && (
+                <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="mb-12">
+                    <div className="flex items-center gap-2 mb-5">
+                        <Sparkles className="w-6 h-6 text-yellow-500" />
+                        <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-600">Featured Qvox Exclusives</h2>
+                    </div>
+                    <div className="flex gap-4 overflow-x-auto pb-6 -mx-6 px-6 lg:-mx-8 lg:px-8 snap-x">
+                        {featuredTracks.map((song, i) => (
+                            <button
+                                key={song.id}
+                                onClick={() => playQueue(featuredTracks, i)}
+                                className="relative flex-shrink-0 w-72 md:w-96 rounded-2xl overflow-hidden group snap-start text-left focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            >
+                                <div className="aspect-[16/9] w-full bg-dark-600 relative">
+                                    {song.coverURL ? (
+                                        <img src={song.coverURL} alt={song.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-4xl">🎵</div>
+                                    )}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                                </div>
+                                <div className="absolute bottom-0 left-0 p-6 w-full">
+                                    <span className="inline-block px-3 py-1 bg-yellow-500 text-black text-xs font-bold rounded-full mb-3 uppercase tracking-wider">
+                                        Editor's Pick
+                                    </span>
+                                    <h3 className="text-2xl font-bold text-white mb-1 truncate">{song.title}</h3>
+                                    <p className="text-white/80 text-sm truncate">{song.artistName}</p>
+                                </div>
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-primary-500 rounded-full flex items-center justify-center opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 shadow-xl">
+                                    <Play className="w-8 h-8 text-black ml-1" />
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </motion.section>
+            )}
 
             {/* Quick Play */}
             {quickPlay.length > 0 && (

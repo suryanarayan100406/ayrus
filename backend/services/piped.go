@@ -200,8 +200,9 @@ func GetYouTubeAudioURL(videoID string) (*PipedStreamInfo, error) {
 		videoURL,
 	)
 
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
+		fmt.Printf("yt-dlp failed for %s. Output: %s\n", videoID, string(output))
 		return nil, fmt.Errorf("yt-dlp audio extraction failed: %v", err)
 	}
 

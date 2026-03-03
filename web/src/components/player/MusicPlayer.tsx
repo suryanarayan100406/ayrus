@@ -14,7 +14,7 @@ export default function MusicPlayer() {
         setVolume, setProgress, setDuration, toggleShuffle,
         toggleRepeat, setAudioRef,
     } = usePlayerStore();
-    const { toggleQueue } = useUIStore();
+    const { toggleQueue, toggleNowPlaying } = useUIStore();
 
     // Always register the audio ref so playSong can use it
     useEffect(() => {
@@ -74,8 +74,11 @@ export default function MusicPlayer() {
                 <div className="fixed bottom-0 left-0 right-0 h-20 bg-dark-900 border-t border-white/5 z-50 px-4">
                     <div className="flex items-center h-full max-w-screen-2xl mx-auto">
                         {/* Song Info */}
-                        <div className="flex items-center gap-3 w-72 min-w-0">
-                            <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-dark-600">
+                        <div
+                            className="flex items-center gap-3 w-72 min-w-0 cursor-pointer hover:bg-white/5 p-2 -ml-2 rounded-lg transition-colors group"
+                            onClick={toggleNowPlaying}
+                        >
+                            <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-dark-600 relative">
                                 {currentSong.coverURL ? (
                                     <img
                                         src={currentSong.coverURL}
@@ -87,9 +90,14 @@ export default function MusicPlayer() {
                                         <ListMusic className="w-6 h-6 text-dark-300" />
                                     </div>
                                 )}
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                                    </svg>
+                                </div>
                             </div>
                             <div className="min-w-0">
-                                <p className="text-sm font-medium truncate">{currentSong.title}</p>
+                                <p className="text-sm font-medium truncate group-hover:text-primary-400 transition-colors">{currentSong.title}</p>
                                 <p className="text-xs text-dark-300 truncate">{currentSong.artistName}</p>
                             </div>
                         </div>

@@ -28,6 +28,9 @@ func SetupRouter() *gin.Engine {
 			auth.POST("/verify-token", handlers.VerifyToken)
 		}
 
+		// Public Routes
+		api.GET("/discover/youtube/stream/:videoId", handlers.GetYouTubeStream)
+
 		// Protected routes (auth required)
 		protected := api.Group("")
 		protected.Use(middleware.AuthMiddleware())
@@ -38,6 +41,7 @@ func SetupRouter() *gin.Engine {
 				users.GET("/me", handlers.GetCurrentUser)
 				users.PUT("/me", handlers.UpdateCurrentUser)
 				users.GET("/me/liked-songs", handlers.GetLikedSongs)
+				users.GET("/:id", handlers.GetPublicProfile)
 			}
 
 			// Song routes
@@ -62,12 +66,12 @@ func SetupRouter() *gin.Engine {
 				playlists.DELETE("/:id/songs/:songId", handlers.RemoveSongFromPlaylist)
 			}
 
+			// Search
+			protected.GET("/search", handlers.Search)
+
 			// Artist public routes
 			protected.GET("/artists/:id", handlers.GetPublicArtist)
 			protected.POST("/artists/:id/follow", handlers.FollowArtist)
-
-			// Search
-			protected.GET("/search", handlers.Search)
 
 			// Recommendations
 			protected.GET("/recommendations", handlers.GetRecommendations)
@@ -85,9 +89,9 @@ func SetupRouter() *gin.Engine {
 				discover.GET("/spotify", handlers.DiscoverSpotify)
 				discover.GET("/deezer", handlers.DiscoverDeezer)
 				discover.GET("/youtube", handlers.DiscoverYouTube)
-				discover.GET("/youtube/stream/:videoId", handlers.GetYouTubeStream)
 				discover.GET("/similar", handlers.DiscoverSimilar)
 				discover.GET("/feed", handlers.DiscoverFeed)
+				discover.GET("/featured", handlers.DiscoverFeatured)
 			}
 
 			// Upload routes
@@ -117,9 +121,11 @@ func SetupRouter() *gin.Engine {
 				admin.PUT("/users/:id/role", handlers.AdminUpdateUserRole)
 				admin.GET("/songs", handlers.AdminGetSongs)
 				admin.PUT("/songs/:id/approve", handlers.AdminApproveSong)
+				admin.PUT("/songs/:id/featured", handlers.AdminToggleFeatured)
 				admin.DELETE("/songs/:id", handlers.AdminDeleteSong)
 				admin.GET("/artists", handlers.AdminGetArtists)
 				admin.PUT("/artists/:id/approve", handlers.AdminApproveArtist)
+				admin.POST("/upload", handlers.AdminUploadSong)
 			}
 		}
 	}

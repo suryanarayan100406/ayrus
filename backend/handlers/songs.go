@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"spotify-clone/models"
 	"spotify-clone/services"
@@ -76,6 +77,39 @@ func StreamSong(c *gin.Context) {
 func RecordPlay(c *gin.Context) {
 	uid := c.GetString("uid")
 	songID := c.Param("id")
+
+	// Parse incoming song metadata (frontend now sends full song object for caching)
+	var req struct {
+		ID         string `json:"id"`
+		Title      string `json:"title"`
+		ArtistName string `json:"artistName"`
+		CoverURL   string `json:"coverURL"`
+		Source     string `json:"source"`
+		Duration   int    `json:"duration"`
+	}
+	if err := c.ShouldBindJSON(&req); err == nil && req.ID != "" {
+		// If it's an external song, ensure it's cached in our Firestore songs collection for History queries
+		if req.Source == "jamendo" || req.Source == "youtube" || req.Source == "fma" {
+			// GetSong will return an error if it doesn't exist yet
+			if _, getErr := services.GetSong(c.Request.Context(), songID); getErr != nil {
+				// Stub created dynamically
+				frontendSong := models.Song{
+					ID:         req.ID,
+					Title:      req.Title,
+					ArtistName: req.ArtistName,
+					CoverURL:   req.CoverURL,
+					Source:     req.Source,
+					Duration:   req.Duration,
+					CreatedAt:  time.Now(),
+					Status:     "approved",
+					PlayCount:  0,
+				}
+				
+				// Fix the ID in Firestore manually to match the frontend passed ID (important for yt-dlp compatibility)
+				services.CreateSongWithID(c.Request.Context(), songID, frontendSong)
+			}
+		}
+	}
 
 	if err := services.RecordPlay(c.Request.Context(), songID, uid); err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to record play")

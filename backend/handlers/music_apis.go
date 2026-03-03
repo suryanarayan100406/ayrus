@@ -100,15 +100,32 @@ func GetArchiveFiles(c *gin.Context) {
 		StreamURL string `json:"streamUrl"`
 	}
 
-	var filesWithURLs []FileWithURL
+	var res []FileWithURL
 	for _, f := range files {
-		filesWithURLs = append(filesWithURLs, FileWithURL{
+		res = append(res, FileWithURL{
 			IAFile:    f,
-			StreamURL: services.GetIAStreamURL(identifier, f.Name),
+			StreamURL: fmt.Sprintf("https://archive.org/download/%s/%s", identifier, f.Name),
 		})
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, filesWithURLs)
+	utils.SuccessResponse(c, http.StatusOK, res)
+}
+
+// DiscoverFeatured returns a curated list of featured catalog songs
+func DiscoverFeatured(c *gin.Context) {
+	limitStr := c.DefaultQuery("limit", "10")
+	limit, _ := strconv.Atoi(limitStr)
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+
+	songs, err := services.GetFeaturedSongs(c.Request.Context(), limit)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "Failed to fetch featured songs")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, songs)
 }
 
 // SearchSpotifyMeta searches Spotify for metadata (kept for backwards compat)

@@ -35,6 +35,7 @@ export const getCurrentUser = () => apiFetch('/users/me');
 export const updateProfile = (data: { displayName?: string; photoURL?: string }) =>
     apiFetch('/users/me', { method: 'PUT', body: JSON.stringify(data) });
 export const getLikedSongs = () => apiFetch('/users/me/liked-songs');
+export const getPublicProfile = (id: string) => apiFetch(`/users/${id}`);
 
 // Songs
 export const getSongs = (params?: { limit?: number; genre?: string }) => {
@@ -43,8 +44,8 @@ export const getSongs = (params?: { limit?: number; genre?: string }) => {
 };
 export const getSong = (id: string) => apiFetch(`/songs/${id}`);
 export const streamSong = (id: string) => apiFetch(`/songs/${id}/stream`);
-export const recordPlay = (id: string) => apiFetch(`/songs/${id}/play`, { method: 'POST' });
 export const likeSong = (id: string) => apiFetch(`/songs/${id}/like`, { method: 'POST' });
+export const recordPlay = (song: any) => apiFetch(`/songs/${encodeURIComponent(song.id)}/play`, { method: 'POST', body: JSON.stringify(song) });
 
 // Playlists
 export const getPlaylists = () => apiFetch('/playlists');
@@ -132,6 +133,10 @@ export const discoverFeed = (params?: { limit?: number }) => {
     const qs = new URLSearchParams(params as Record<string, string>).toString();
     return apiFetch(`/discover/feed?${qs}`);
 };
+export const discoverFeatured = (params?: { limit?: number }) => {
+    const qs = new URLSearchParams(params as Record<string, string>).toString();
+    return apiFetch(`/discover/featured?${qs}`);
+};
 
 // Admin
 export const adminGetDashboard = () => apiFetch('/admin/dashboard');
@@ -142,9 +147,17 @@ export const adminGetArtists = (status?: string) =>
     apiFetch(`/admin/artists${status ? `?status=${status}` : ''}`);
 export const adminApproveSong = (id: string, status: string) =>
     apiFetch(`/admin/songs/${id}/approve`, { method: 'PUT', body: JSON.stringify({ status }) });
+export const adminToggleFeatured = (id: string, featured: boolean) =>
+    apiFetch(`/admin/songs/${id}/featured`, { method: 'PUT', body: JSON.stringify({ featured }) });
 export const adminApproveArtist = (id: string, status: string) =>
     apiFetch(`/admin/artists/${id}/approve`, { method: 'PUT', body: JSON.stringify({ status }) });
 export const adminUpdateUserRole = (id: string, role: string) =>
     apiFetch(`/admin/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) });
 export const adminDeleteSong = (id: string) =>
     apiFetch(`/admin/songs/${id}`, { method: 'DELETE' });
+export const adminUploadSong = (formData: FormData) =>
+    apiFetch('/admin/upload', {
+        method: 'POST',
+        headers: {}, // Do not set Content-Type, let browser set it and boundary
+        body: formData,
+    });

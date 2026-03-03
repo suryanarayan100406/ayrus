@@ -5,9 +5,11 @@ interface UIState {
     theme: 'dark' | 'light';
     sidebarOpen: boolean;
     queueVisible: boolean;
+    nowPlayingOpen: boolean;
     toggleTheme: () => void;
     toggleSidebar: () => void;
     toggleQueue: () => void;
+    toggleNowPlaying: () => void;
     setSidebarOpen: (open: boolean) => void;
 }
 
@@ -17,6 +19,7 @@ export const useUIStore = create<UIState>()(
             theme: 'dark',
             sidebarOpen: true,
             queueVisible: false,
+            nowPlayingOpen: false,
 
             toggleTheme: () =>
                 set((state) => {
@@ -30,6 +33,8 @@ export const useUIStore = create<UIState>()(
             toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
             toggleQueue: () => set((state) => ({ queueVisible: !state.queueVisible })),
+
+            toggleNowPlaying: () => set((state) => ({ nowPlayingOpen: !state.nowPlayingOpen })),
 
             setSidebarOpen: (open) => set({ sidebarOpen: open }),
         }),
